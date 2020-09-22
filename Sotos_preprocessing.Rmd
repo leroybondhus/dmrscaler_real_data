@@ -1,0 +1,76 @@
+---
+title: "Sotos_data_preprocessing"
+author: "Leroy_Bondhus"
+date: "September 17, 2020"
+output: html_document
+---
+
+
+```{r libraries, echo=FALSE, results='hide'}
+library("sva")
+library("minfiData")
+library("minfi")
+library("IlluminaHumanMethylationEPICmanifest")
+library(doParallel)
+
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+
+library(Gviz)
+```
+
+
+```{r read_data}
+idats_dir<-"/home/lbondhus/Desktop/STABLE_DATA/GSE74432/idat"
+idats_files<-list.files(path=idats_dir, pattern = "*.idat")
+targets <- read.metharray.sheet("/home/lbondhus/Desktop/STABLE_DATA/GSE74432/data_table/", pattern = "Formatted", verbose = TRUE)
+targets$Basename<-paste(targets$Sample_Name,targets$Slide, targets$Array, sep = "_")  
+
+targets <- targets[intersect(union(grep("Sotos", targets$Sample_Group),grep("Control", targets$Sample_Group)), grep("blood", targets$X)),]
+
+RGSet <- read.metharray.exp(base = idats_dir, targets = targets)
+rm(idats_dir, idats_files, targets)
+```
+
+
+
+```{r}
+GRset.funnorm <- preprocessFunnorm(RGSet);rm(RGSet)
+snps <- getSnpInfo(object = GRset.funnorm)
+GRset.funnorm <- dropLociWithSnps(GRset.funnorm, snps=c("SBE", "CpG"), maf=0);rm(snps)
+
+```
+
+```{r sex_QC} 
+pdat <- pData(GRset.funnorm)
+predictedSex <- getSex(GRset.funnorm, cutoff = -2)$predictedSex
+predictedSex[which(predictedSex=="F")]<-"female"
+predictedSex[which(predictedSex=="M")]<-"male"
+pdat$Sex[which(pdat$Sex == " female")]<-"female"
+pdat$Sex[which(pdat$Sex == " male")]<-"male"
+
+C <- matrix(c(pdat$Sex, predictedSex,(pdat$Sex == predictedSex), pdat$Basename), nrow = length(predictedSex), ncol=4);C
+rm(C, predictedSex)
+```
+
+```{r Remove_XY_Chromosomes}
+#REMOVE X and Y CHROMOSOME PROBES!!
+cut_from_end <- GRset.funnorm@rowRanges@seqnames@lengths[which(GRset.funnorm@rowRanges@seqnames@values=="chrX")] +
+GRset.funnorm@rowRanges@seqnames@lengths[which(GRset.funnorm@rowRanges@seqnames@values=="chrY")]
+if(length(cut_from_end) == 0){cut_from_end <- 0}
+#GRset.funnorm.with_X_Y<-GRset.funnorm ## uncomment if X and Y are desired
+GRset.funnorm<-GRset.funnorm[1:(length(GRset.funnorm)-as.numeric(cut_from_end)),]
+rm(cut_from_end)
+```
+
+```{r Save Data Objects}
+save(GRset.funnorm, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sotos_GRset.funnorm.Rdata")
+```
+
+
+
+
+
+
+

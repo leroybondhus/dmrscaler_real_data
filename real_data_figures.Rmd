@@ -1,0 +1,142 @@
+---
+title: "real_data_figures"
+author: "Leroy_Bondhus"
+date: "September 19, 2020"
+output: html_document
+---
+
+```{r}
+library("tidyverse")
+library("ggplot2")
+library("gridExtra")
+
+
+library("Gviz")
+
+```
+
+
+```{r setup for KAT6A analysis}
+load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/KAT6A_GRset.funnorm.Rdata")
+load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/KAT6A_dmrscaler_built_layers.Rdata")
+
+B<-getBeta(GRset.funnorm)
+pdat<-pData(GRset.funnorm)
+
+locs <- getLocations(GRset.funnorm)
+locs <- data.frame("names"=locs@ranges@NAMES, "pos"=locs@ranges@start, "chr" = rep(locs@seqnames@values, locs@seqnames@lengths))
+
+
+patient_index<-grep("KAT",pdat$Sample_Name)
+control_index<-grep("CONTROL", pdat$Sample_Name)                      
+
+group<-as.character(seq(from=1, to=ncol(B), by =1 ))
+
+group[patient_index] <- "KAT6A"
+group[control_index] <- "control"
+
+group <- as.factor(group)
+color=c("blue", "seagreen3")
+linewide=c(5, 5 )
+
+```
+
+
+
+
+```{r Gene Annotations}
+
+gtf_df <- rtracklayer::import("/home/lbondhus/Desktop/STABLE_DATA/HUMAN_GENOME/Homo_sapiens.GRCh37.87.chr.gtf")
+gtf_df <- as.data.frame(gtf_df)
+gtf_df$seqnames<-paste("chr", gtf_df$seqnames, sep = "")
+
+genes<-as.data.frame(cbind(chromosome=gtf_df$seqnames, start=gtf_df$start, end=gtf_df$end ))
+genes<-cbind(genes, width=as.numeric(as.character(gtf_df$width)), strand=gtf_df$strand, feature=gtf_df$type, gene=gtf_df$gene_id, exon=gtf_df$exon_id, transcript=gtf_df$transcript_id, symbol=gtf_df$gene_name)
+
+genes$start<-as.numeric(as.character(genes$start))
+genes$end<-as.numeric(as.character(genes$end))
+
+```
+
+
+```{r build_plotting_funcs}
+B<-getBeta(GRset.funnorm)
+normB <- B-rowMeans(B[,controls])
+
+
+
+for(i in c(30,213,221)){
+    # 1:nrow(built_layers[[6]]) ){
+    
+  temp <- built_layers[[6]][i,]
+  chr <- temp$chr
+  start <- temp$start_pos
+  stop <- temp$stop_pos
+  start <- temp$start_pos - floor((temp$stop_pos - temp$start_pos)/10)
+  stop <- temp$stop_pos + floor((temp$stop_pos - temp$start_pos)/10)
+  
+  genes_exons<-genes[which((genes$chr==chr) & (genes$start>=start) & (genes$end<=stop)),]
+  genes_exons<-droplevels(genes_exons)
+  genes_exons<-genes_exons[complete.cases(genes_exons),]
+  
+  cex_size=7
+  cex_small=5
+  gen<-"hg19"
+  
+  
+  which<-which(locs$chr==chr & locs$pos>=start & locs$pos<=stop )
+  Bt<-B[which,]
+  Bt_norm<-normB[which,]
+  
+  irange<-IRanges(start=locs[which,"pos"], width=1)
+  grange<-GRanges(seqnames=chr, ranges =  ranges(irange), mcols = Bt )
+  
+  manhattan_range <- GRanges(seqnames=chr, ranges =  ranges(irange), mcols = atomic_layer[which,] )
+  manhattan_track <- DataTrack(range = manhattan_range, data = atomic_layer[which,]$scoring_value, lwd=1.5, col.histogram=c("black"), type=c("hist"), ylim=c(0,max(atomic_layer$scoring_values)))
+
+  raw_beta_track<-DataTrack(range=grange, data=t(Bt), groups=group, genome=gen, name="Beta", col=color, lwd=linewide, type=c("a", "p", "confint"))
+  norm_beta_track<-DataTrack(range=grange, data=t(Bt_norm), groups=group, genome=gen, name="Beta", col=color, lwd=linewide, type=c("a", "p", "confint"))
+  
+  displayPars(raw_beta_track) <- list( cex.legend=2, cex.axis=2, cex.title=3.5)
+  
+  grtrack <- GeneRegionTrack(genes_exons, genome=gen, chromosome=chr, name="Gene Model", transcriptAnnotation="symbol",collapseTranscripts = "meta")
+  displayPars(grtrack) <- list( background.panel="#FFFEDB", col=NULL, fontsize=24, fontsize.group=38)
+  if( length(which)==0 ){
+    grtrack <- itrack
+  }
+  
+  layer_track <- list()
+for(i in 1:length(built_layers)){
+  layer_track[[i]] <- AnnotationTrack(start = built_layers[[i]]$start_pos, 
+                                      end =  built_layers[[i]]$stop_pos,
+                                      chromosome = built_layers[[i]]$chr,
+                                      strand = "*", genome = "hg19", name=paste("layer", i, sep = "_")) 
+}
+gtrack<-GenomeAxisTrack()
+displayPars(gtrack) <- list(cex=cex_small,cex.id=4)
+itrack<-IdeogramTrack(genome=gen,chromosome = chr)
+displayPars(itrack) <- list(cex=cex_small,cex.bands=2)
+
+  
+  
+  Region_name <- paste(chr, start, stop, sep="_")
+  filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/", Region_name , ".png", sep = "")
+  png(file=filename, width = 2400, height = 1500) ####### start writing 
+    
+  plotTracks(list(itrack, gtrack, raw_beta_track, norm_beta_track, manhattan_track, grtrack, 
+                  layer_track[[1]],
+                  layer_track[[2]],
+                  layer_track[[3]],
+                  layer_track[[4]],
+                  layer_track[[5]],
+                  layer_track[[6]]
+                  ), from = start-1, to=stop+1, sizes =c(0.5,0.5,1,2,2,2,0.5,0.5,0.5,0.5,0.5,0.5) )
+  dev.off() ####  stop writing
+}
+
+
+```
+
+
+
+

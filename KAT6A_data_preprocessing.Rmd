@@ -1,0 +1,68 @@
+---
+title: "KAT6A_Data_Preprocessing"
+author: "Leroy_Bondhus"
+date: "September 16, 2020"
+output: html_document
+---
+
+### Link libraries  ###
+```{r libraries, echo=FALSE, results='hide'}
+library("sva")
+library("minfiData")
+library("minfi")
+library("IlluminaHumanMethylationEPICmanifest") ###### NOTE hg19 is used IlluminaHumanMethylation450kanno.ilmn.hg19
+                                                ###### NOTE New mapping is used:
+                                                ######                   IlluminaHumanMethylationEPICanno.ilm10b4.hg19
+library(doParallel)
+
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+
+library(Gviz)
+```
+
+###  Reading of idat files done with minfi library ###
+```{r read_data}
+idats_dir<-"/home/lbondhus/Desktop/STABLE_DATA/KAT6A_DNA_methylation_data/idat_KAT6A_and_control"
+idats_files<-list.files(path=idats_dir, pattern = "*.idat")
+targets <- read.metharray.sheet("/home/lbondhus/Desktop/STABLE_DATA/KAT6A_DNA_methylation_data/", pattern = "Formatted", verbose = TRUE)
+targets$Basename<-paste(targets$Slide, "_", targets$Array, sep = "")  
+#Extract only KAT6A patients and Controls for analysis
+targets <- targets[c(grep("^CONTROL",targets$Sample_Name),grep("^KAT6",targets$Sample_Name)),]
+targets <- targets[-grep("-2", targets$Sample_Name),] ## remove technical replicates
+RGSet <- read.metharray.exp(base = idats_dir, targets = targets)
+rm(idats_dir, idats_files, targets)
+```
+
+###  Processing done with minfi library  ###
+```{r process idats}
+#manifest <- getManifest(RGSet)
+GRset.funnorm <- preprocessFunnorm(RGSet);rm(RGSet)
+snps <- getSnpInfo(object = GRset.funnorm)
+GRset.funnorm <- dropLociWithSnps(GRset.funnorm, snps=c("SBE", "CpG"), maf=0);rm(snps)
+#dropLociWithSnps removed 30k elements of the 866k elements to 836k elements
+```
+
+
+### To remove largest sex biases, X and Y signals removed ###
+### NOTE: Still may be sex bias in data                   ###
+### NOTE: If samples v control can be partitioned on M/F  ###
+###       it would be worth while to run separtate tests  ###
+###       and include X and Y                             ###    
+```{r Remove_XY_Chromosomes}
+#REMOVE X and Y CHROMOSOME PROBES
+cut_from_end<-GRset.funnorm@rowRanges@seqnames@lengths[which(GRset.funnorm@rowRanges@seqnames@values=="chrX")] +
+GRset.funnorm@rowRanges@seqnames@lengths[which(GRset.funnorm@rowRanges@seqnames@values=="chrY")]
+if(length(cut_from_end)==0){cut_from_end=0}
+#GRset.funnorm.with_X_Y<-GRset.funnorm ## uncomment if X and Y are desired
+GRset.funnorm<-GRset.funnorm[1:(length(GRset.funnorm)-as.numeric(cut_from_end)),]
+rm(cut_from_end)
+```
+
+
+```{r Save Data Objects}
+save(GRset.funnorm, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/KAT6A_GRset.funnorm.Rdata")
+```
+
+
