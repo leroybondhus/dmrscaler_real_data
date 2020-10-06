@@ -154,22 +154,41 @@ B<-as.matrix(B)
 
 save(built_layers, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sex_8M_8F_built_layers.Rdata")              
 save(atomic_layer, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sex_8M_8F_atomic_layers.Rdata")
+
+(built_layers, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sex_8M_8F_built_layers.Rdata")              
+save(atomic_layer, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sex_8M_8F_atomic_layers.Rdata")
 ```
 
 ```{r bumphunter and dmrcate}
+g1<-pdat$Basename[which(trimws(pdat$Sex)=="female")][1:8]
+g2<-pdat$Basename[which(trimws(pdat$Sex)=="male")][1:8]
 
+B_mod<-B[,c(g1,g2)]
                     ##   BUMPHUNTER  ##
 design<-rep(-1,length(colnames(B_mod)))
 design[which(is.element(colnames(B_mod),g1))]<-1
 design<-cbind(rep(1,length(colnames(B_mod) ) ), design )
-bumps4 <- bumphunter(B_mod,as.matrix(design),chr = locs$chr, pos=locs$pos, cutoff=0.1, maxGap=1e6, B=250, smoothFunction=loessByCluster )
-temp_names <- paste("called", bumps4$table$chr, bumps4$table$start, sep = "_")
-bh_called_grs <- GRanges(
-  seqnames = bumps4$table$chr,
-  ranges = IRanges(start = bumps4$table$start, end = bumps4$table$end, names = temp_names),
-  strand = rep("*", nrow(bumps4$table))
-)
 
+bumps_default <- bumphunter(B_mod,as.matrix(design), cutoff=0.1 , chr = locs$chr, pos=locs$pos)
+
+bumps_1Mb <- bumphunter(B_mod,as.matrix(design),chr = locs$chr, pos=locs$pos, cutoff=0.1, maxGap=1e6, B=250, smoothFunction=loessByCluster )
+# 
+# temp_names <- paste("called", bumps4$table$chr, bumps4$table$start, sep = "_")
+# bh_called_grs <- GRanges(
+#   seqnames = bumps4$table$chr,
+#   ranges = IRanges(start = bumps4$table$start, end = bumps4$table$end, names = temp_names),
+#   strand = rep("*", nrow(bumps4$table))
+# )
+
+                ## DMRcate  ##
+
+M_mod<-M[,c(g1,g2)]
+colnames(design) <- c("(Intercept)","(Intercept)")
+myannotation <- cpg.annotate("array", M_mod, what="M", arraytype = "450K",analysis.type="differential", design=design, coef=2)
+dmrcate_dmrs_default <- dmrcate(myannotation, lambda=1000, C=2)
+dmrcate_dmrs_default  <- extractRanges(dmrcate_dmrs_default , genome = "hg19")
+dmrcate_dmrs_1M <- dmrcate(myannotation, lambda=1e6, C=2000)
+dmrcate_dmrs_1M  <- extractRanges(dmrcate_dmrs_1M , genome = "hg19")
 ```
 
 
