@@ -1,0 +1,18 @@
+---
+title: "Down_Syndrome_Data_Cleaning"
+author: "Leroy_Bondhus"
+date: "September 25, 2020"
+output: html_document
+---
+
+```{r}
+
+library(Biobase)
+library(GEOquery)
+
+#Download GDS file, put it in the current directory, and load it:
+gse73747 <- getGEO('GSE73747', destdir="/home/lbondhus/Desktop/STABLE_DATA/GSE73747",
+                   GSEMatrix=FALSE)
+Meta(gse73747)
+gse_list <- GSMList(gse73747)
+```

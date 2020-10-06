@@ -1,0 +1,78 @@
+---
+title: "Sex_data_prep"
+author: "Leroy_Bondhus"
+date: "September 28, 2020"
+output: html_document
+---
+
+```{r}
+library("devtools")
+library(roxygen2)
+
+
+library(minfi)
+library(doParallel)
+library(rlang)
+library(MESS)
+
+library("valr")
+library(IRanges)
+registerDoParallel()
+
+
+library("sva")
+library("minfiData")
+library("minfi")
+library("IlluminaHumanMethylationEPICmanifest") ###### NOTE hg19 is used IlluminaHumanMethylation450kanno.ilmn.hg19
+                                                ###### NOTE New mapping is used:
+                                                ######                   IlluminaHumanMethylationEPICanno.ilm10b4.hg19
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+
+document("/home/lbondhus/Desktop/PROJECTS/dmrscaler")
+install("/home/lbondhus/Desktop/PROJECTS/dmrscaler")
+
+results_dir <-paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_simulation/results/")
+```
+
+
+###  Reading of idat files done with minfi library ###
+```{r read_data}
+idats_dir<-"/home/lbondhus/Desktop/STABLE_DATA/GSE74432/idat"
+idats_files<-list.files(path=idats_dir, pattern = "*.idat")
+targets <- read.metharray.sheet("/home/lbondhus/Desktop/STABLE_DATA/GSE74432/data_table/", pattern = "Formatted_Sample_Table", verbose = TRUE)
+targets$Basename<-paste(targets$Sample_Name, "_", targets$Slide, "_", targets$Array, sep = "")
+
+targets <- targets[intersect(grep("Control", targets$Sample_Group), grep("blood", targets$X) ),]
+
+RGSet <- read.metharray.exp(base = idats_dir, targets = targets)
+rm(idats_dir, idats_files, targets)
+```
+
+###  Processing done with minfi library  ###
+```{r process idats}
+#manifest <- getManifest(RGSet)
+GRset.funnorm <- preprocessFunnorm(RGSet);rm(RGSet)
+snps <- getSnpInfo(object = GRset.funnorm)
+GRset.funnorm <- dropLociWithSnps(GRset.funnorm, snps=c("SBE", "CpG"), maf=0);rm(snps)
+#dropLociWithSnps removed 30k elements of the 866k elements to 836k elements
+```
+
+### Check that sex matches ###
+```{r sex_QC} 
+pdat <- pData(GRset.funnorm)
+predictedSex <- getSex(GRset.funnorm, cutoff = -2)$predictedSex
+
+pdat$Sex[which(pdat$Sex==" female")] <- "F"
+pdat$Sex[which(pdat$Sex==" male")] <- "M"
+C <- matrix(c(pdat$Sex, predictedSex,(pdat$Sex == predictedSex), pdat$Basename), nrow = length(pdat$Sex), ncol=4);C
+rm(C, predictedSex)
+```
+
+
+```{r Save Data Objects}
+save(GRset.funnorm, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/With_X_Sotos_GRset.funnorm.Rdata")
+
+#save(mann_whitney_wilcox_results, file="/home/lbondhus/Desktop/PROJECTS/KAT6A_DNA_methylation_project/intermediate_data/mann_whitney_wilcox_results_NEW.Rdata")
+```

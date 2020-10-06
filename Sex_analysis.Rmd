@@ -1,0 +1,580 @@
+---
+title: "Sex_analysis"
+author: "Leroy_Bondhus"
+date: "September 28, 2020"
+output: html_document
+---
+
+
+```{r}
+library("devtools")
+library(roxygen2)
+
+
+library(minfi)
+library(doParallel)
+library(rlang)
+library(MESS)
+
+library("valr")
+library(IRanges)
+library(GenomicRanges)
+registerDoParallel()
+
+
+library("sva")
+library("minfiData")
+library("minfi")
+library("IlluminaHumanMethylationEPICmanifest") ###### NOTE hg19 is used IlluminaHumanMethylation450kanno.ilmn.hg19
+                                                ###### NOTE New mapping is used:
+                                                ######                   IlluminaHumanMethylationEPICanno.ilm10b4.hg19
+library(tidyverse)
+library(ggplot2)
+library(gridExtra)
+
+library(DMRcate)
+document("/home/lbondhus/Desktop/PROJECTS/dmrscaler")
+install("/home/lbondhus/Desktop/PROJECTS/dmrscaler")
+
+results_dir <-paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/results/")
+
+library(Gviz)
+```
+
+
+```{r }
+load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/With_X_Sotos_GRset.funnorm.Rdata")
+
+pdat <- pData(GRset.funnorm)
+locs <- getLocations(GRset.funnorm)
+locs <- data.frame("names"=locs@ranges@NAMES, "pos"=locs@ranges@start, "chr" = rep(locs@seqnames@values, locs@seqnames@lengths))
+controls<-which(pdat$Sample_Group==" Control" & pdat$X==" whole blood")
+B<-getBeta(GRset.funnorm)
+cB<-B[,controls]
+cP <-pdat[controls,]
+locs <- getLocations(GRset.funnorm)
+
+M<-getM(GRset.funnorm)
+cB<-B[,controls]
+locs <- data.frame("names"=locs@ranges@NAMES, "pos"=locs@ranges@start, "chr" = rep(locs@seqnames@values, locs@seqnames@lengths))
+cdf <- as.data.frame(cP)
+```
+
+
+```{r sex grouped}
+g1<-pdat$Basename[which(trimws(pdat$Sex)=="female")][1:8]
+g2<-pdat$Basename[which(trimws(pdat$Sex)=="male")][1:8]
+B<-as.matrix(B)
+              ############################     run everything         #########################
+              num_perm <- 40
+              clt_reps <- 5e4
+              
+              rim <- dmrscaler::generate_rand_index_matrix(num_controls = length(g1),
+                                                           num_cases = length(g2),
+                                                           num_permutations = num_perm)
+              mrp <- dmrscaler::run_MWW_rand_permutation(index_matrix = rim, 
+                                                         Beta = B,
+                                                         num_permutations = num_perm)
+              mrp <- -log10(mrp)
+              mwr <- dmrscaler::run_MWW(control_indices = which(is.element(colnames(B),g1)) ,
+                                        case_indices = which(is.element(colnames(B),g2)),
+                                        Beta = B)
+              mwr <- -log10(mwr)
+              fdt <- dmrscaler::write_FDR_table(real_table = mwr,
+                                                rand_table = mrp)
+              
+              fdrscaler <- dmrscaler::get_FDR_scalar(MWW_FDR_table = fdt,
+                                                     MWW_FDR_threshold = 0.1)
+              if(is.na(fdrscaler)){fdrscaler <- 1}
+              cltable <- dmrscaler::write_CLT_lookup_table(num_reps = clt_reps ,
+                                                           data_to_sample = mwr$p_val,
+                                                           FDR_scaler = fdrscaler,
+                                                           clt_numCGs = c(2, 5, 10, 25, 50))
+              ## data <-  names, chr, pos,  scoring_value (-log10pval)
+            #  data <- controlCGlocs
+              data <- locs[,1:3]
+              data$chr <- as.factor(data$chr)
+              colnames(data)<-c("names","pos","chr")
+              data$scoring_values <- mwr$p_val
+            #  data$chr <- droplevels(data$chr)
+              layer_sizes <- c(2,4,8,16,32,64)
+              layers<-list()
+              for(i in 1:length(layer_sizes)){
+                print(paste("layer", i, sep="_"))
+                nn_step_fraction = 2 
+                nn_step_size <- floor(layer_sizes[i] / nn_step_fraction)
+                nn <- dmrscaler::n_nearest_window_scoring_func(indat = data, n_nearest = layer_sizes[i], step_size = nn_step_size, FDR = fdrscaler)
+                signn <- dmrscaler::determine_significant_windows(window_results=nn, indat=data, quants=cltable , quants_significance_cutoff = "0.9999" )
+                signn <- dmrscaler::add_significance(three_window_list =  signn, lookup_table = cltable)
+                
+                ## multiple chromosomes each a list, coerce to single dataframe
+                signn <- bind_rows(signn)
+                ## 
+                
+                layers[[i]]<-signn
+              }
+              
+              layers_TEMP_BACKUP <- layers
+              layers<-layers_TEMP_BACKUP
+              
+              names(layers)<-paste("layer", layer_sizes, sep="_")
+              
+              # for(i in 1:length(layers)){
+              #   temp<-as.data.frame(layers[[i]][[1]])
+              #  # print(length(layers[[i]]))
+              #   if(length(layers[[i]]) <= 1){ 
+              #   layers[[i]]<-temp
+              #   next
+              #   }
+              #   for(j in 2:length(layers[[i]])){
+              #     temp<-rbind(temp, layers[[i]][[j]])
+              #   }
+              #   layers[[i]]<-temp[[1]]
+              # }
+              
+              atomic_layer <- data
+              for(i in 1:length(layers)){
+                for(k in 1:length(layers[[i]]$start_pos)){
+                  layers[[i]]$start_index[k]<-which(atomic_layer$pos==layers[[i]]$start_pos[k] & as.character(atomic_layer$chr) == as.character(layers[[i]]$chr[k]))
+                  layers[[i]]$stop_index[k]<-which(atomic_layer$pos==layers[[i]]$stop_pos[k] & as.character(atomic_layer$chr) == as.character(layers[[i]]$chr[k]))
+                }
+              }
+              built_layers <- list()
+              built_layers[[1]] <- in_layer_merge(dmrs = layers[[1]], CG_table = atomic_layer, FDR_scaler = fdrscaler, lookup_table = cltable)
+              for(i in 2:length(layers)){
+                #print(i)
+                built_layers[[i]] <- build_next_layer(prev_layer = built_layers[[i-1]], 
+                                                      windows_to_layer = layers[[i]], 
+                                                      CG_table = atomic_layer,
+                                                      FDR_scaler=fdrscaler,
+                                                      lookup_table = cltable)
+                built_layers[[i]]<- in_layer_merge(dmrs = built_layers[[i]], CG_table = atomic_layer, FDR_scaler = fdrscaler, lookup_table = cltable)
+               # print("done with one")
+              }
+
+save(built_layers, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sex_8M_8F_built_layers.Rdata")              
+save(atomic_layer, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sex_8M_8F_atomic_layers.Rdata")
+```
+
+```{r bumphunter and dmrcate}
+
+                    ##   BUMPHUNTER  ##
+design<-rep(-1,length(colnames(B_mod)))
+design[which(is.element(colnames(B_mod),g1))]<-1
+design<-cbind(rep(1,length(colnames(B_mod) ) ), design )
+bumps4 <- bumphunter(B_mod,as.matrix(design),chr = locs$chr, pos=locs$pos, cutoff=0.1, maxGap=1e6, B=250, smoothFunction=loessByCluster )
+temp_names <- paste("called", bumps4$table$chr, bumps4$table$start, sep = "_")
+bh_called_grs <- GRanges(
+  seqnames = bumps4$table$chr,
+  ranges = IRanges(start = bumps4$table$start, end = bumps4$table$end, names = temp_names),
+  strand = rep("*", nrow(bumps4$table))
+)
+
+```
+
+
+
+```{r}
+built_layers <- built_layers[which(unlist(lapply(built_layers,nrow)) != 0)]
+
+```
+
+
+```{r sex chrom analysis}
+
+library("chromPlot")
+data(hg_gap)
+hg_gap$Chrom<-paste("chr", hg_gap$Chrom, sep = "")
+chromPlot(gaps = hg_gap)
+data("hg_cytoBandIdeo")
+
+
+sex_built_layers <- built_layers
+
+for(i in 1:length(sex_built_layers)){
+  if(nrow(sex_built_layers[[i]])==0){next;}
+  png(filename = paste("./results/09282020_sex_analysis_chromX_", i, ".png", sep=""))
+  
+  sex_built_layers <- built_layers
+  sbl6 <- sex_built_layers[[i]] 
+  sbl6_2 <- data.frame("Chrom"=sbl6$chr, "Start"=sbl6$start_pos, "End"=sbl6$stop_pos, "Colors"="red", "ID"=paste(sbl6$chr,sbl6$start_pos, sep = "_"))
+  sbl6 <- data.frame("Chrom"=sbl6$chr, "Start"=sbl6$start_pos, "End"=sbl6$stop_pos, "Colors"="red")
+
+
+  chromPlot(bands = hg_cytoBandIdeo, gaps = hg_gap, segment=sbl6, stat = sbl6_2, figCols=4, statCol = "Value", statName = "Value", statTyp = "n", chr = c(1,2,"X", "Y"))
+  # chromPlot(bands = hg_cytoBandIdeo, gaps = hg_gap, segment=sbl6, stat = sbl6_2, statCol = "Value", statName = "Value", statTyp = "n", chr = "X")
+ #   chromPlot(bands = hg_cytoBandIdeo, gaps = hg_gap, segment=sbl6, figCols = 8, stat = sbl6, statCol = "Value", statName = "Value", statTyp = "n")
+  dev.off()
+
+}
+
+
+
+```
+
+
+```{r setup}
+
+control_index <- which(is.element(colnames(B),g1))
+patient_index <- which(is.element(colnames(B),g2))
+
+group<-as.character(seq(from=1, to=ncol(B[,c(g1,g2)]), by =1 ))
+group[control_index] <- "female"
+group[patient_index] <- "male"
+
+group <- as.factor(group)
+color=c("blue", "seagreen3")
+linewide=c(5, 5 )
+```
+
+
+
+```{r Gene Annotations}
+
+gtf_df <- rtracklayer::import("/home/lbondhus/Desktop/STABLE_DATA/HUMAN_GENOME/Homo_sapiens.GRCh37.87.chr.gtf")
+gtf_df <- as.data.frame(gtf_df)
+gtf_df$seqnames<-paste("chr", gtf_df$seqnames, sep = "")
+
+genes<-as.data.frame(cbind(chromosome=gtf_df$seqnames, start=gtf_df$start, end=gtf_df$end ))
+genes<-cbind(genes, width=as.numeric(as.character(gtf_df$width)), strand=gtf_df$strand, feature=gtf_df$type, gene=gtf_df$gene_id, exon=gtf_df$exon_id, transcript=gtf_df$transcript_id, symbol=gtf_df$gene_name)
+
+genes$start<-as.numeric(as.character(genes$start))
+genes$end<-as.numeric(as.character(genes$end))
+
+```
+
+
+```{r}
+X<- data.frame(cluster=c("X","X","X","X","X"), 
+          chr=c("chrX","chrX","chrX", "chrX", "chrX"),
+          start_pos=c(71e6, 71.25e6, 71.45e6, 71.45e6, 47.05e6),
+          stop_pos=c(72e6, 71.75e6, 71.55e6, 71.55e6, 49.36e6))
+B<-B[,c(g1,g2)]
+normB <- B-rowMeans(B[,control_index])
+
+
+#for(i in c(30,213,221)){
+#for(i in 1:nrow(built_layers[[6]]) ){
+#for(i in   which(built_layers[[6]]$unsigned_bin_sig > 0.99995 &  built_layers[[6]]$numCG > 50) ){
+ # temp <- built_layers[[6]][i,]
+for(i in nrow(X)){
+  temp<-X[i,]
+  
+  chr <- as.character(temp$chr)
+  start <- temp$start_pos
+  stop <- temp$stop_pos
+  start <- temp$start_pos - floor((temp$stop_pos - temp$start_pos)/10)
+  stop <- temp$stop_pos + floor((temp$stop_pos - temp$start_pos)/10)
+  
+  genes_exons<-genes[which((genes$chr==chr) & (genes$start>=start) & (genes$end<=stop)),]
+  genes_exons<-droplevels(genes_exons)
+  genes_exons<-genes_exons[complete.cases(genes_exons),]
+  
+  cex_size=7
+  cex_small=5
+  gen<-"hg19"
+  
+  
+  which<-which(locs$chr==chr & locs$pos>=start & locs$pos<=stop )
+  Bt<-B[which,]
+  Bt_norm<-normB[which,]
+  
+  irange<-IRanges(start=locs[which,"pos"], width=1)
+  grange<-GRanges(seqnames=chr, ranges =  ranges(irange), mcols = Bt )
+  
+  manhattan_range <- GRanges(seqnames=chr, ranges =  ranges(irange), mcols = atomic_layer[which,] )
+  manhattan_track <- DataTrack(range = manhattan_range, data = atomic_layer[which,]$scoring_value, lwd=1.5, col.histogram=c("black"), type=c("hist"), ylim=c(0,max(atomic_layer$scoring_values)))
+
+  raw_beta_track<-DataTrack(range=grange, data=t(Bt), groups=group, genome=gen, name="Beta", col=color, lwd=linewide, type=c("a", "p", "confint"))
+  norm_beta_track<-DataTrack(range=grange, data=t(Bt_norm), groups=group, genome=gen, name="Beta", col=color, lwd=linewide, type=c("a", "p", "confint"))
+  
+  displayPars(raw_beta_track) <- list( cex.legend=2, cex.axis=2, cex.title=3.5)
+  
+  grtrack <- GeneRegionTrack(genes_exons, genome=gen, chromosome=chr, name="Gene Model", transcriptAnnotation="symbol",collapseTranscripts = "meta")
+  displayPars(grtrack) <- list( background.panel="#FFFEDB", col=NULL, fontsize=24, fontsize.group=38)
+  if( length(which)==0 ){
+    grtrack <- itrack
+  }
+  
+  layer_track <- list()
+for(j in 1:length(built_layers)){
+  layer_track[[j]] <- AnnotationTrack(start = built_layers[[j]]$start_pos, 
+                                      end =  built_layers[[j]]$stop_pos,
+                                      chromosome = built_layers[[j]]$chr,
+                                      strand = "*", genome = "hg19", name=paste("layer", j, sep = "_")) 
+}
+gtrack<-GenomeAxisTrack()
+displayPars(gtrack) <- list(cex=cex_small,cex.id=4)
+itrack<-IdeogramTrack(genome=gen,chromosome = chr)
+displayPars(itrack) <- list(cex=cex_small,cex.bands=2)
+
+  Region_name <- paste(chr, start, stop, sep="_")
+  #filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/KAT6A/", Region_name , ".png", sep = "")
+  filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/", "chrX_" ,start, "_", stop, ".png", sep = "")
+  png(file=filename, width = 2400, height = 1500) ####### start writing 
+    
+  plotTracks(list(itrack, gtrack, raw_beta_track, norm_beta_track, manhattan_track, grtrack,
+                  layer_track[[1]],
+                  layer_track[[2]],
+                  layer_track[[3]],
+                  layer_track[[4]],
+                  layer_track[[5]]
+                  ), from = start-1, to=stop+1, sizes =c(0.5,0.5,1,4,2,2,0.5,0.5,0.5,0.5,0.5) )
+  #  plotTracks(list(itrack, gtrack, raw_beta_track, norm_beta_track, manhattan_track, grtrack),
+  #             from = start-1, to=stop+1, sizes =c(0.5,0.5,1,4,2,2) )
+  dev.off() ####  stop writing
+}  
+```
+
+
+
+```{r make pretty table}
+
+built_layers
+
+```
+
+
+
+```{r}
+
+library(networkD3)
+library(rjson)
+#built_layers_backup <- built_layers
+built_layers <- built_layers_backup
+#built_layers <- built_layers[3:5]
+
+x_full_node_set <- list()
+for(j in 1:length(built_layers)){
+ # x_which <- which(built_layers[[j]]$chr =="chrX")
+  x_which <- 1:length(built_layers[[j]]$chr)
+  x_base <- GenomicRanges::GRanges(seqnames = built_layers[[j]]$chr[x_which],
+                                         IRanges(start = built_layers[[j]]$start_pos[x_which], end = built_layers[[j]]$stop_pos[x_which]  ))
+  x_base_nodes <- list()
+  for(i in 1:length(x_base)){
+    temp_name <- paste(as.character(seqnames(x_base[i,])), start(x_base[i,]), end(x_base[i,]), sep = "_")
+    temp_child <- list("name"= temp_name, "alt_name"= temp_name, "grange"=x_base[i,], "children"=list() )
+    x_base_nodes[[i]] <-  list("name"= temp_name, "alt_name"= temp_name, "grange"=x_base[i,], "children"=list())
+  }
+  x_full_node_set[[j]]<-x_base_nodes
+}
+
+temp_full_node_set <- x_full_node_set
+#x_full_node_set <- temp_full_node_set
+
+for(j in 2:length(x_full_node_set)){
+  print(j)
+  
+  lower <- x_full_node_set[[j-1]]
+  upper <- x_full_node_set[[j]]
+  
+  lower_gr <- lower[[1]]$grange
+  for(i in 2:length(lower)){
+    lower_gr <- c(lower_gr, lower[[i]]$grange)
+  }
+  upper_gr <- upper[[1]]$grange
+  if(length(upper) >= 2){
+    for(i in 2:length(upper)){
+      upper_gr <- c(upper_gr, upper[[i]]$grange)
+    }
+  }
+  
+  hits <- GenomicRanges::findOverlaps(lower_gr,upper_gr,type = "within")
+  for( i in 1:length(hits@from)){
+    upper[[ hits@to[i] ]]$children <- c(upper[[ hits@to[i] ]]$children, list(lower[[ hits@from[i] ]]))
+    if(upper[[ hits@to[i] ]]$name == lower[[ hits@from[i] ]]$name |
+       upper[[ hits@to[i] ]]$alt_name == lower[[ hits@from[i] ]]$name  |
+       upper[[ hits@to[i] ]]$name == lower[[ hits@from[i] ]]$alt_name
+       ){  ### avoid redundant child-parent pairs
+      upper[[ hits@to[i] ]]$name <- "..."
+      
+    }
+  }
+  x_full_node_set[[j]]<-upper
+}
+
+#x_dmr_tree <- x_full_node_set[[3]][[1]]
+x_dmr_tree <- list("name"="root","children"=x_full_node_set[[5]])
+
+x_dmr_tree_clean <- list()
+
+node <- x_dmr_tree
+
+
+
+strip_grs <- function(node){
+  node <- list("name" = node$name, "children" = node$children)
+  if(length(node$children)==0){return(node)}
+  for(i in 1:length(node$children)){
+    node$children[[i]]<-strip_grs(node$children[[i]])
+  }
+  return(node)
+}
+x_dmr_tree_clean <- strip_grs(x_dmr_tree)
+
+library(data.tree)
+dtree <- as.Node(x_dmr_tree_clean)
+
+jsonData <- toJSON(x_dmr_tree_clean)
+#write(jsonData, "/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/sex_dmr_tree_output.json")
+write(jsonData, "/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/sex_dmr_tree_output_full.json")
+
+library("webshot") ###  library to fix an obnoxious problem
+
+temp <- radialNetwork(List = x_dmr_tree_clean, fontSize = 12, fontFamily = "bold", nodeStroke = "black", linkColour = "#C0C0C0", opacity = 1, margin=0, height = 1600, width = 1600)
+saveNetwork(temp,"/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/All_chrom_dmrs_radialNetwork.html" ,
+            selfcontained = T)
+webshot("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/All_chrom_dmrs_radialNetwork.html",
+        "/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/All_all_layer_chrom_dmrs_radialNetwork.png")
+
+
+temp <- diagonalNetwork(List = x_dmr_tree_clean, fontSize = 16, fontFamily = "bold", nodeStroke = "black", linkColour = "black", opacity = 1,  margin=0, height = 800, width = 600)
+saveNetwork(temp,"/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/All_chrom_dmrs_diagonalNetwork.html" , selfcontained = T )
+webshot("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/All_chrom_dmrs_diagonalNetwork.html",
+        "/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/All_all_layer_chrom_dmrs_diagonalNetwork.png", vwidth = 600, vheight = 800)
+
+```
+
+
+
+
+
+
+
+
+
+```{r}
+strip_grs <- function(node){
+  node <- list("name" = node$alt_name, "children" = node$children)
+  if(length(node$children)==0){return(node)}
+  for(i in 1:length(node$children)){
+    node$children[[i]]<-strip_grs(node$children[[i]])
+  }
+  return(node)
+}
+x_dmr_tree_clean <- strip_grs(x_dmr_tree)
+
+## make adjacency matrix for igraph plotting
+x_dmr_names <- unique(unname(unlist(x_dmr_tree_clean)[grep("chr", unlist(x_dmr_tree_clean) )]))
+#x_adj_matrix <- matrix(nrow = length(x_dmr_names), ncol = length(x_dmr_names))
+temp <- 0
+izjz <- data.frame("iz"=numeric(),"jz"=numeric())
+record_edges <- function(node, x_dmr_names, izjz){
+  temp <- temp+1
+  if(length(node$children) >0){
+    children_names <- rep("", length(node$children))
+    for(i in 1:length(node$children)){
+      izjz <- record_edges(node = node$children[[i]], x_dmr_names = x_dmr_names, izjz = izjz)
+      children_names[i] <- node$children[[i]]$name
+    }
+    print(paste("mat_i", mat_i))
+    mat_i <- x_dmr_names[which(x_dmr_names == node$name)]
+    print(paste("mat_j", mat_j))
+    mat_j <- x_dmr_names[which(is.element(x_dmr_names, children_names))]
+    temp <- data.frame("iz" = rep(mat_i, length(node$children)), "jz" = mat_j)
+    izjz <- rbind(izjz, temp)
+  }
+  return(izjz)
+}
+izjz <- record_edges(node = x_dmr_tree_clean, x_dmr_names = x_dmr_names, izjz = izjz)
+izjz$iz <- as.character(izjz$iz)
+izjz$jz <- as.character(izjz$jz)
+izjz <- izjz[-which(izjz$iz==izjz$jz),]
+library(Matrix)
+x_adj_matrix <- sparseMatrix(i = izjz$iz, j = izjz$jz)
+
+
+library(igraph)
+#graph_from_adjacency_matrix(x_adj_matrix, mode = "directed")
+temp <- graph.data.frame(izjz, directed=T)
+V(temp)$size <- 2
+V(temp)$frame.color <- "white"
+V(temp)$color <- "orange"
+V(temp)$vertex.label.cex <- 10
+#V(temp)$label <- "" 
+E(temp)$arrow.mode <- 0
+E(temp)$arrow.size <- 0.1
+
+png("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/X_chrom_network_plot.png", height = 1000, width = 1000 )
+plot(temp, layout=layout.fruchterman.reingold)
+dev.off()
+l<-layout_with_kk(temp)
+l <-layout.norm(l, ymin=-1, ymax=1, xmin=-1, xmax=1)
+plot(temp,rescale=F, layout=l*1)
+plot(temp,rescale=F, layout=l*2)
+plot(temp,rescale=F, layout=l*4)
+plot(temp,rescale=F, layout=l*8)
+
+l <-layout.fruchterman.reingold(temp, repulserad=vcount(temp)^3,area=vcount(temp)^2.4)
+l <- layout.reingold.tilford(temp, circular=T)
+l <-layout.norm(l, ymin=-1, ymax=1, xmin=-1, xmax=1)
+par(mfrow=c(2,2),  mar=c(0,0,0,0))
+plot(temp,rescale=F, layout=l*1)
+plot(temp,rescale=F, layout=l*2)
+plot(temp,rescale=F, layout=l*4)
+plot(temp,rescale=F, layout=l*8)
+
+
+```
+
+```{r hilbert curves}
+
+library(HilbertCurve)
+
+
+png("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/Hilbert_curves_chr1.png", width = 600, height=600)
+
+hc_points <- atomic_layer[which(atomic_layer$chr=="chr1"),]
+hc_max <- nrow(hc_points)
+hc_col <- rep("grey10", nrow(hc_points))
+hc_col[which(hc_points$scoring_values>fdrscaler)] <- "red"
+hc_size <- hc_points$scoring_values / max(hc_points$scoring_values)
+hc <- HilbertCurve(s=1,e=hc_max, level = 4, reference = F)
+hc_points(hc, x1 = 1:nrow(hc_points), np = NULL, pch = 16, size = unit(hc_size*2, "mm"),gp = gpar(col = hc_col, fill = hc_col))
+
+
+dev.off()
+
+
+png("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/Hilbert_curves_chrX.png", width = 600, height=600)
+
+hc_points <- atomic_layer[which(atomic_layer$chr=="chrX"),]
+hc_max <- nrow(hc_points)
+hc_col <- rep("grey10", nrow(hc_points))
+hc_col[which(hc_points$scoring_values>fdrscaler)] <- "red"
+hc_size <- hc_points$scoring_values / max(hc_points$scoring_values)
+hc <- HilbertCurve(s=1,e=hc_max, level = 5, reference = F)
+hc_points(hc, x1 = 1:nrow(hc_points), np = NULL, pch = 16, size = unit(hc_size*2, "mm"),gp = gpar(col = hc_col, fill = hc_col))
+
+
+
+dev.off()
+png("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/Hilbert_curves_chrX_inv.png", width = 600, height=600)
+
+hc_points <- atomic_layer[which(atomic_layer$chr=="chrX"),]
+hc_max <- nrow(hc_points)
+hc_col <- rep("grey10", nrow(hc_points))
+hc_col[which(hc_points$scoring_values>fdrscaler)] <- "red"
+hc_size <- (max(hc_points$scoring_values) - hc_points$scoring_values +1) / max(hc_points$scoring_values)
+hc <- HilbertCurve(s=1,e=hc_max, level = 5, reference = F)
+hc_points(hc, x1 = 1:nrow(hc_points), np = NULL, pch = 16, size = unit(hc_size*2, "mm"),gp = gpar(col = hc_col, fill = hc_col))
+
+dev.off()
+png("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/Hilbert_curves_chr1_inv.png", width = 600, height=600)
+
+hc_points <- atomic_layer[which(atomic_layer$chr=="chr1"),]
+hc_max <- nrow(hc_points)
+hc_col <- rep("grey10", nrow(hc_points))
+hc_col[which(hc_points$scoring_values>fdrscaler)] <- "red"
+hc_size <- (max(hc_points$scoring_values) - hc_points$scoring_values +1) / max(hc_points$scoring_values)
+hc <- HilbertCurve(s=1,e=hc_max, level = 5, reference = F)
+hc_points(hc, x1 = 1:nrow(hc_points), np = NULL, pch = 16, size = unit(hc_size*2, "mm"),gp = gpar(col = hc_col, fill = hc_col))
+
+dev.off()
+```
+
+
+
+
+
+

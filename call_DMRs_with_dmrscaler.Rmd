@@ -56,11 +56,22 @@ B <- getBeta(GRset.funnorm)
 ```
 
 
+```{r setup Weaver data}
+load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Weaver_GRset.funnorm.Rdata")
+pdat <- pData(GRset.funnorm)
+controls <- grep("Control",pdat$Sample_Group)
+cases <- grep("Weaver", pdat$Sample_Group)
+locs <- getLocations(GRset.funnorm)
+locs <- data.frame("names"=locs@ranges@NAMES, "pos"=locs@ranges@start, "chr" = rep(locs@seqnames@values, locs@seqnames@lengths))
+B <- getBeta(GRset.funnorm)
+
+```
+
 
 ```{r}
       
       ############################     run everything         #########################
-      num_perm <- 10
+      num_perm <- 40
       clt_reps <- 5e4
       
       rim <- dmrscaler::generate_rand_index_matrix(num_controls = length(controls),
@@ -135,6 +146,8 @@ B <- getBeta(GRset.funnorm)
       }
       built_layers <- list()
       built_layers[[1]] <- in_layer_merge(dmrs = layers[[1]], CG_table = atomic_layer, FDR_scaler = fdrscaler, lookup_table = cltable)
+      built_layers[[1]] <- in_layer_merge(dmrs = built_layers[[1]], CG_table = atomic_layer, FDR_scaler = fdrscaler, lookup_table = cltable)
+      built_layers[[1]] <- trim_layer(dmrs = built_layers[[1]], CG_table = atomic_layer, FDR_scaler = 2, lookup_table = cltable)
       for(i in 2:length(layers)){
         #print(i)
         built_layers[[i]] <- build_next_layer(prev_layer = built_layers[[i-1]], 
@@ -143,6 +156,8 @@ B <- getBeta(GRset.funnorm)
                                               FDR_scaler=fdrscaler,
                                               lookup_table = cltable)
       built_layers[[i]] <- in_layer_merge(dmrs = built_layers[[i]], CG_table = atomic_layer, FDR_scaler = fdrscaler, lookup_table = cltable)
+      built_layers[[i]] <- in_layer_merge(dmrs = built_layers[[i]], CG_table = atomic_layer, FDR_scaler = fdrscaler, lookup_table = cltable)
+      built_layers[[i]] <- trim_layer(dmrs = built_layers[[i]], CG_table = atomic_layer, FDR_scaler = 2, lookup_table = cltable)
        # print("done with one")
       }
 
@@ -153,5 +168,7 @@ B <- getBeta(GRset.funnorm)
 
 ```{r Save Data Objects}
 save(built_layers, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/KAT6A_dmrscaler_built_layers.Rdata")
+#save(built_layers, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Weaver_dmrscaler_built_layers.Rdata")
+
 ```
 
