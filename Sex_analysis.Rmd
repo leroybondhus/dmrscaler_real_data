@@ -324,10 +324,69 @@ clean_results_table <- tab_spanner(clean_results_table, label="chrX",
                                    columns = c("chrX_num_dmrs","chrX_mean_width","chrX_median_width", "chrX_percent_total_width") )
 clean_results_table <- tab_spanner(clean_results_table, label="Autosomes",
                                    columns = c("autosome_num_dmrs","autosome_mean_width","autosome_median_width", "autosome_percent_total_width") )
+
+clean_results_table <- fmt_number(clean_results_table, columns = vars(chrX_percent_total_width, autosome_percent_total_width),
+                                  n_sigfig = 2, scale_by = 100, pattern = "{x}%")
+
+clean_results_table <- fmt_number(clean_results_table, columns = vars(autosome_mean_width),
+                                  rows = (autosome_mean_width > 1000) & (autosome_mean_width < 1e6),
+                                  decimals = 2, scale_by = 1/1000, pattern = "{x} kb")
+clean_results_table <- fmt_number(clean_results_table, columns = vars(autosome_mean_width),
+                                  rows = (autosome_mean_width <= 1000),
+                                  decimals = 0, pattern = "{x} bp")
+
+clean_results_table <- fmt_number(clean_results_table, columns = vars(chrX_mean_width),
+                                  rows = (chrX_mean_width >= 1e6),
+                                  decimals = 2, scale_by = 1/1e6, pattern = "{x} Mb")
+clean_results_table <- fmt_number(clean_results_table, columns = vars(chrX_mean_width),
+                                  rows = (chrX_mean_width > 1000) & (chrX_mean_width < 1e6),
+                                  decimals = 2, scale_by = 1/1000, pattern = "{x} kb")
+clean_results_table <- fmt_number(clean_results_table, columns = vars(chrX_mean_width),
+                                  rows = (chrX_mean_width <= 1000),
+                                  decimals = 0, pattern = "{x} bp")
+
+
+clean_results_table <- fmt_number(clean_results_table, columns = vars(chrX_median_width),
+                                  rows = (chrX_median_width >= 1e6),
+                                  decimals = 2, scale_by = 1/1e6, pattern = "{x} Mb")
+clean_results_table <- fmt_number(clean_results_table, columns = vars(chrX_median_width),
+                                  rows = (chrX_median_width > 1000) & (chrX_median_width < 1e6),
+                                  decimals = 2, scale_by = 1/1000, pattern = "{x} kb")
+clean_results_table <- fmt_number(clean_results_table, columns = vars(chrX_median_width),
+                                  rows = (chrX_median_width <= 1000),
+                                  decimals = 0, pattern = "{x} bp")
+
+
+clean_results_table <- fmt_number(clean_results_table, columns = vars(autosome_median_width),
+                                  rows = (autosome_median_width >= 1e6),
+                                  decimals = 2, scale_by = 1/1e6, pattern = "{x} Mb")
+clean_results_table <- fmt_number(clean_results_table, columns = vars(autosome_median_width),
+                                  rows = (autosome_median_width > 1000) & (autosome_median_width < 1e6),
+                                  decimals = 2, scale_by = 1/1000, pattern = "{x} kb")
+clean_results_table <- fmt_number(clean_results_table, columns = vars(autosome_median_width),
+                                  rows = (autosome_median_width <= 1000),
+                                  decimals = 0, pattern = "{x} bp")
+
+clean_results_table <- cols_label(clean_results_table,
+                                  chrX_num_dmrs = " #\nDMRs ", chrX_mean_width = " mean\nDMR width ",
+                                  chrX_median_width = " median\nDMR width ", chrX_percent_total_width = " % total\nwidth ",
+                                  autosome_num_dmrs = " #\nDMRs ", autosome_mean_width = " mean\nDMR width ",
+                                  autosome_median_width = " median\nDMR width ", autosome_percent_total_width = " % total\nwidth " )
+
 clean_results_table
 
-
-
+  fmt_scientific(
+    columns = vars(num),
+    rows = num <= 500,
+    decimals = 1
+  )
+ fmt_number(
+    columns = vars(num),
+    rows = num > 500,
+    decimals = 1,
+    scale_by = 1/1000,
+    pattern = "{x}K"
+  )
 ```
 
 
