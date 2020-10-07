@@ -155,8 +155,8 @@ B<-as.matrix(B)
 save(built_layers, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sex_8M_8F_built_layers.Rdata")              
 save(atomic_layer, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sex_8M_8F_atomic_layers.Rdata")
 
-(built_layers, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sex_8M_8F_built_layers.Rdata")              
-save(atomic_layer, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sex_8M_8F_atomic_layers.Rdata")
+load(file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sex_8M_8F_built_layers.Rdata")              
+load(file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sex_8M_8F_atomic_layers.Rdata")
 ```
 
 ```{r bumphunter and dmrcate}
@@ -195,6 +195,138 @@ dmrcate_dmrs_1M  <- extractRanges(dmrcate_dmrs_1M , genome = "hg19")
 
 ```{r}
 built_layers <- built_layers[which(unlist(lapply(built_layers,nrow)) != 0)]
+
+```
+
+```{r make pretty table}
+test<-built_layers[[5]]
+test <- test[1:10,c(1:4,7)]
+
+library("gt")
+
+test_table <- gt(test, groupname_col = "chr") 
+test_table <- tab_header(test_table, title = "test", subtitle = "subtitle")
+test_table <- tab_spanner(test_table, label="position", columns = c("start_pos","stop_pos") )
+test_table
+
+results_table <- data.frame("method"=character(),
+                            "chrX_num_dmrs"=numeric(), 
+                            "chrX_mean_width"=numeric(),
+                            "chrX_median_width"=numeric(),
+                            "chrX_percent_total_width"=numeric(),
+                            "autosome_num_dmrs"=numeric(), 
+                            "autosome_avg_width"=numeric(),
+                            "autosome_median_width"=numeric(),                            
+                            "autosome_percent_total_width"=numeric())
+for( i in 1:length(built_layers)){
+  which <- which(built_layers[[i]]$chr == "chrX")
+  which_not <- which(built_layers[[i]]$chr != "chrX" & built_layers[[i]]$chr != "chrY")
+  results_table <- rbind(results_table,
+                         data.frame("method" = "dmrscaler", 
+                         "chrX_num_dmrs" = nrow(built_layers[[i]][which,]),
+                         "chrX_mean_width" = mean(built_layers[[i]]$stop_pos[which]-built_layers[[i]]$start_pos[which]),
+                         "chrX_median_width"= median(built_layers[[i]]$stop_pos[which]-built_layers[[i]]$start_pos[which]),                         
+                         "chrX_percent_total_width" = -1,  # add later
+                         "autosome_num_dmrs" = nrow(built_layers[[i]][which_not,]),
+                         "autosome_mean_width" = mean(built_layers[[i]]$stop_pos[which_not]-built_layers[[i]]$start_pos[which_not]),
+                         "autosome_median_width"= median(built_layers[[i]]$stop_pos[which_not]-built_layers[[i]]$start_pos[which_not]),                            
+                         "autosome_percent_total_width" = -1 # add late
+                         ))
+  rownames(results_table)[i] <- paste("layer_",i,"_",layer_sizes[i] ,"adj_CG", sep = "")
+}
+
+### Add bumphunter results to table
+
+which <- which(bumps_default$table$chr == "chrX")
+which_not <- which(bumps_default$table$chr != "chrX" & bumps_default$table$chr != "chrY")
+results_table <- rbind(results_table,
+                         data.frame("method" = "bumphunter", 
+                         "chrX_num_dmrs" = nrow(bumps_default$table[which,]),
+                         "chrX_mean_width" = mean(bumps_default$table$end[which]-bumps_default$table$start[which]),
+                         "chrX_median_width"= median(bumps_default$table$end[which]-bumps_default$table$start[which]),                         
+                         "chrX_percent_total_width" = -1,  # add later
+                         "autosome_num_dmrs" = nrow(built_layers[[i]][which_not,]),
+                         "autosome_mean_width" = mean(bumps_default$table$end[which_not]-bumps_default$table$start[which_not]),
+                         "autosome_median_width"= median(bumps_default$table$end[which_not]-bumps_default$table$start[which_not]),                            
+                         "autosome_percent_total_width" = -1 # add late
+                         ))
+rownames(results_table)[length(rownames(results_table))] <- "bumphunter_default"
+
+which <- which(bumps_1Mb$table$chr == "chrX")
+which_not <- which(bumps_1Mb$table$chr != "chrX" & bumps_1Mb$table$chr != "chrY")
+results_table <- rbind(results_table,
+                         data.frame("method" = "bumphunter", 
+                         "chrX_num_dmrs" = nrow(bumps_1Mb$table[which,]),
+                         "chrX_mean_width" = mean(bumps_1Mb$table$end[which]-bumps_1Mb$table$start[which]),
+                         "chrX_median_width"= median(bumps_1Mb$table$end[which]-bumps_1Mb$table$start[which]),                         
+                         "chrX_percent_total_width" = -1,  # add later
+                         "autosome_num_dmrs" = nrow(built_layers[[i]][which_not,]),
+                         "autosome_mean_width" = mean(bumps_1Mb$table$end[which_not]-bumps_1Mb$table$start[which_not]),
+                         "autosome_median_width"= median(bumps_1Mb$table$end[which_not]-bumps_1Mb$table$start[which_not]),                            
+                         "autosome_percent_total_width" = -1 # add late
+                         ))
+rownames(results_table)[length(rownames(results_table))] <- "bumphunter_1Mb"
+
+
+### add dmrcate results to table
+widths <- width(dmrcate_dmrs_default)
+seqs <- as.character(seqnames(dmrcate_dmrs_default))
+
+which <- which(seqs == "chrX")
+which_not <- which(seqs != "chrX" & seqs != "chrY")
+results_table <- rbind(results_table,
+                         data.frame("method" = "dmrcate", 
+                         "chrX_num_dmrs" = length(which),
+                         "chrX_mean_width" = mean(widths[which]),
+                         "chrX_median_width"= median(widths[which]),                         
+                         "chrX_percent_total_width" = -1,  # add later
+                         "autosome_num_dmrs" = length(which_not),
+                         "autosome_mean_width" = mean(widths[which_not]),
+                         "autosome_median_width"= median(widths[which_not]),                            
+                         "autosome_percent_total_width" = -1 # add late
+                         ))
+rownames(results_table)[length(rownames(results_table))] <- "dmrcate_default"
+
+widths <- width(dmrcate_dmrs_1M)
+seqs <- as.character(seqnames(dmrcate_dmrs_1M))
+
+which <- which(seqs == "chrX")
+which_not <- which(seqs != "chrX" & seqs != "chrY")
+results_table <- rbind(results_table,
+                         data.frame("method" = "dmrcate", 
+                         "chrX_num_dmrs" = length(which),
+                         "chrX_mean_width" = mean(widths[which]),
+                         "chrX_median_width"= median(widths[which]),                         
+                         "chrX_percent_total_width" = -1,  # add later
+                         "autosome_num_dmrs" = length(which_not),
+                         "autosome_mean_width" = mean(widths[which_not]),
+                         "autosome_median_width"= median(widths[which_not]),                            
+                         "autosome_percent_total_width" = -1 # add late
+                         ))
+rownames(results_table)[length(rownames(results_table))] <- "dmrcate_1M"
+
+
+
+chrXsize <- max(locs$pos[which(locs$chr=="chrX")])
+autosome_size <- 0
+for(i in 1:22){
+  chr <- paste("chr",i,sep = "")
+  autosome_size <- autosome_size + max(locs$pos[which(locs$chr==chr)])
+}
+results_table$chrX_percent_total_width <- results_table$chrX_mean_width * results_table$chrX_num_dmrs / chrXsize
+
+results_table$autosome_percent_total_width <- results_table$autosome_mean_width * results_table$autosome_num_dmrs / autosome_size
+
+
+clean_results_table <- gt(results_table, groupname_col = "method") 
+clean_results_table <- tab_header(clean_results_table, title = "Sex Analysis DMR Summary Table")
+clean_results_table <- tab_spanner(clean_results_table, label="chrX",
+                                   columns = c("chrX_num_dmrs","chrX_mean_width","chrX_median_width", "chrX_percent_total_width") )
+clean_results_table <- tab_spanner(clean_results_table, label="Autosomes",
+                                   columns = c("autosome_num_dmrs","autosome_mean_width","autosome_median_width", "autosome_percent_total_width") )
+clean_results_table
+
+
 
 ```
 
