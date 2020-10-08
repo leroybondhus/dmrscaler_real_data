@@ -317,13 +317,24 @@ results_table$chrX_percent_total_width <- results_table$chrX_mean_width * result
 
 results_table$autosome_percent_total_width <- results_table$autosome_mean_width * results_table$autosome_num_dmrs / autosome_size
 
+results_table$method_params <- rownames(results_table)
 
-clean_results_table <- gt(results_table, groupname_col = "method") 
+clean_results_table <- gt(results_table, groupname_col = "method", rowname_col = "method_params") 
 clean_results_table <- tab_header(clean_results_table, title = "Sex Analysis DMR Summary Table")
 clean_results_table <- tab_spanner(clean_results_table, label="chrX",
                                    columns = c("chrX_num_dmrs","chrX_mean_width","chrX_median_width", "chrX_percent_total_width") )
 clean_results_table <- tab_spanner(clean_results_table, label="Autosomes",
                                    columns = c("autosome_num_dmrs","autosome_mean_width","autosome_median_width", "autosome_percent_total_width") )
+clean_results_table <- tab_stubhead(clean_results_table , "method")
+
+
+clean_results_table <- cols_label(clean_results_table,
+                                  chrX_num_dmrs = html(" #\n<br>DMRs "), chrX_mean_width = html(" mean\n<br>DMR width "),
+                                  chrX_median_width = html(" median\n<br>DMR width "), chrX_percent_total_width = html(" % total\n<br>width "),
+                                  autosome_num_dmrs = html(" #\n<br>DMRs "), autosome_mean_width = html(" mean\n<br>DMR width "),
+                                  autosome_median_width = html(" median\n<br>DMR width "), autosome_percent_total_width = html(" % total\n<br>width " ))
+
+
 
 clean_results_table <- fmt_number(clean_results_table, columns = vars(chrX_percent_total_width, autosome_percent_total_width),
                                   n_sigfig = 2, scale_by = 100, pattern = "{x}%")
@@ -367,14 +378,10 @@ clean_results_table <- fmt_number(clean_results_table, columns = vars(autosome_m
                                   rows = (autosome_median_width <= 1000),
                                   decimals = 0, pattern = "{x} bp")
 
-clean_results_table <- cols_label(clean_results_table,
-                                  chrX_num_dmrs = " #\nDMRs ", chrX_mean_width = " mean\nDMR width ",
-                                  chrX_median_width = " median\nDMR width ", chrX_percent_total_width = " % total\nwidth ",
-                                  autosome_num_dmrs = " #\nDMRs ", autosome_mean_width = " mean\nDMR width ",
-                                  autosome_median_width = " median\nDMR width ", autosome_percent_total_width = " % total\nwidth " )
 
 clean_results_table
 
+gtsave(clean_results_table, filename = "/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/results/SEX/Sex_Analysis_DMR_Summary_Table.png")
   fmt_scientific(
     columns = vars(num),
     rows = num <= 500,
@@ -495,13 +502,15 @@ for(i in nrow(X)){
   manhattan_range <- GRanges(seqnames=chr, ranges =  ranges(irange), mcols = atomic_layer[which,] )
   manhattan_track <- DataTrack(range = manhattan_range, data = atomic_layer[which,]$scoring_value, lwd=1.5, col.histogram=c("black"), type=c("hist"), ylim=c(0,max(atomic_layer$scoring_values)))
 
-  raw_beta_track<-DataTrack(range=grange, data=t(Bt), groups=group, genome=gen, name="Beta", col=color, lwd=linewide, type=c("a", "p", "confint"))
-  norm_beta_track<-DataTrack(range=grange, data=t(Bt_norm), groups=group, genome=gen, name="Beta", col=color, lwd=linewide, type=c("a", "p", "confint"))
+  raw_beta_track<-DataTrack(range=grange, data=t(Bt), groups=group, genome=gen, name="Beta", col=color, lwd=linewide, type=c("a", "p", "confint"), fontcolor.title="grey20", col.axis="black", fontcolor.legend="grey20")
+  displayPars(raw_beta_track) <- list( cex.legend=3, cex.axis=2, cex.title=2 )
   
-  displayPars(raw_beta_track) <- list( cex.legend=2, cex.axis=2, cex.title=3.5)
+  norm_beta_track<-DataTrack(range=grange, data=t(Bt_norm), groups=group, genome=gen, name="Beta", col=color, lwd=linewide, type=c("a", "p", "confint"), fontcolor.title="grey20", col.axis="black", fontcolor.legend="grey20")
+  displayPars(norm_beta_track) <- list( cex.legend=3, cex.axis=2, cex.title=2 )
+  
   
   grtrack <- GeneRegionTrack(genes_exons, genome=gen, chromosome=chr, name="Gene Model", transcriptAnnotation="symbol",collapseTranscripts = "meta")
-  displayPars(grtrack) <- list( background.panel="#FFFEDB", col=NULL, fontsize=24, fontsize.group=38)
+  displayPars(grtrack) <- list( background.panel="white", col="grey20", fontsize=24, fontsize.group=38, fill = "grey50", lwd=2, fontcolor.group="grey20", fontcolor.title="grey20")
   if( length(which)==0 ){
     grtrack <- itrack
   }
@@ -511,7 +520,8 @@ for(j in 1:length(built_layers)){
   layer_track[[j]] <- AnnotationTrack(start = built_layers[[j]]$start_pos, 
                                       end =  built_layers[[j]]$stop_pos,
                                       chromosome = built_layers[[j]]$chr,
-                                      strand = "*", genome = "hg19", name=paste("layer", j, sep = "_")) 
+                                      strand = "*", genome = "hg19", name=paste("layer", j, sep = "_"))
+  displayPars(layer_track[[j]]) <- list(col="grey20", fill="grey70", fontcolor.title="grey20")
 }
 gtrack<-GenomeAxisTrack()
 displayPars(gtrack) <- list(cex=cex_small,cex.id=4)
@@ -522,14 +532,18 @@ displayPars(itrack) <- list(cex=cex_small,cex.bands=2)
   #filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/KAT6A/", Region_name , ".png", sep = "")
   filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/", "chrX_" ,start, "_", stop, ".png", sep = "")
   png(file=filename, width = 2400, height = 1500) ####### start writing 
-    
-  plotTracks(list(itrack, gtrack, raw_beta_track, norm_beta_track, manhattan_track, grtrack,
+  
+  #plotTracks(list(itrack, gtrack, raw_beta_track, norm_beta_track, manhattan_track, grtrack,
+  plotTracks(list(itrack, gtrack, raw_beta_track, norm_beta_track, grtrack,
                   layer_track[[1]],
                   layer_track[[2]],
                   layer_track[[3]],
                   layer_track[[4]],
                   layer_track[[5]]
-                  ), from = start-1, to=stop+1, sizes =c(0.5,0.5,1,4,2,2,0.5,0.5,0.5,0.5,0.5) )
+                  ),
+             from = start-1, to=stop+1, sizes =c(1,1,3,4,2,0.5,0.5,0.5,0.5,0.5),
+            background.title = "white"
+             )
   #  plotTracks(list(itrack, gtrack, raw_beta_track, norm_beta_track, manhattan_track, grtrack),
   #             from = start-1, to=stop+1, sizes =c(0.5,0.5,1,4,2,2) )
   dev.off() ####  stop writing
