@@ -131,26 +131,30 @@ B<-as.matrix(B)
               #   }
               #   layers[[i]]<-temp[[1]]
               # }
-              
-              atomic_layer <- data
-              for(i in 1:length(layers)){
-                for(k in 1:length(layers[[i]]$start_pos)){
-                  layers[[i]]$start_index[k]<-which(atomic_layer$pos==layers[[i]]$start_pos[k] & as.character(atomic_layer$chr) == as.character(layers[[i]]$chr[k]))
-                  layers[[i]]$stop_index[k]<-which(atomic_layer$pos==layers[[i]]$stop_pos[k] & as.character(atomic_layer$chr) == as.character(layers[[i]]$chr[k]))
-                }
-              }
-              built_layers <- list()
-              built_layers[[1]] <- in_layer_merge(dmrs = layers[[1]], CG_table = atomic_layer, FDR_scaler = fdrscaler, lookup_table = cltable)
-              for(i in 2:length(layers)){
-                #print(i)
-                built_layers[[i]] <- build_next_layer(prev_layer = built_layers[[i-1]], 
-                                                      windows_to_layer = layers[[i]], 
-                                                      CG_table = atomic_layer,
-                                                      FDR_scaler=fdrscaler,
-                                                      lookup_table = cltable)
-                built_layers[[i]]<- in_layer_merge(dmrs = built_layers[[i]], CG_table = atomic_layer, FDR_scaler = fdrscaler, lookup_table = cltable)
-               # print("done with one")
-              }
+                    atomic_layer <- data
+      for(i in 1:length(layers)){
+        for(k in 1:length(layers[[i]]$start_pos)){
+          layers[[i]]$start_index[k]<-which(atomic_layer$pos==layers[[i]]$start_pos[k] & as.character(atomic_layer$chr) == as.character(layers[[i]]$chr[k]))
+          layers[[i]]$stop_index[k]<-which(atomic_layer$pos==layers[[i]]$stop_pos[k] & as.character(atomic_layer$chr) == as.character(layers[[i]]$chr[k]))
+        }
+      }
+      built_layers <- list()
+      built_layers[[1]] <- in_layer_merge(dmrs = layers[[1]], CG_table = atomic_layer, FDR_scaler = fdrscaler, lookup_table = cltable)
+      built_layers[[1]] <- in_layer_merge(dmrs = built_layers[[1]], CG_table = atomic_layer, FDR_scaler = fdrscaler, lookup_table = cltable)
+      built_layers[[1]] <- trim_layer(dmrs = built_layers[[1]], CG_table = atomic_layer, FDR_scaler = 2, lookup_table = cltable)
+      for(i in 2:length(layers)){
+        #print(i)
+        built_layers[[i]] <- build_next_layer(prev_layer = built_layers[[i-1]], 
+                                              windows_to_layer = layers[[i]], 
+                                              CG_table = atomic_layer,
+                                              FDR_scaler=fdrscaler,
+                                              lookup_table = cltable)
+      built_layers[[i]] <- in_layer_merge(dmrs = built_layers[[i]], CG_table = atomic_layer, FDR_scaler = fdrscaler, lookup_table = cltable)
+      built_layers[[i]] <- in_layer_merge(dmrs = built_layers[[i]], CG_table = atomic_layer, FDR_scaler = fdrscaler, lookup_table = cltable)
+      built_layers[[i]] <- trim_layer(dmrs = built_layers[[i]], CG_table = atomic_layer, FDR_scaler = 2, lookup_table = cltable)
+       # print("done with one")
+      }
+
 
 save(built_layers, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sex_8M_8F_built_layers.Rdata")              
 save(atomic_layer, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sex_8M_8F_atomic_layers.Rdata")
@@ -160,8 +164,8 @@ load(file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data
 ```
 
 ```{r bumphunter and dmrcate}
-g1<-pdat$Basename[which(trimws(pdat$Sex)=="female")][1:8]
-g2<-pdat$Basename[which(trimws(pdat$Sex)=="male")][1:8]
+#g1<-pdat$Basename[which(trimws(pdat$Sex)=="female")][1:8]
+#g2<-pdat$Basename[which(trimws(pdat$Sex)=="male")][1:8]
 
 B_mod<-B[,c(g1,g2)]
                     ##   BUMPHUNTER  ##
@@ -381,7 +385,7 @@ clean_results_table <- fmt_number(clean_results_table, columns = vars(autosome_m
 
 clean_results_table
 
-gtsave(clean_results_table, filename = "/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/results/SEX/Sex_Analysis_DMR_Summary_Table.png")
+gtsave(clean_results_table, filename = "/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/results/SEX/Sex_Analysis_DMR_Summary_Table_2.png")
   fmt_scientific(
     columns = vars(num),
     rows = num <= 500,
@@ -462,10 +466,11 @@ genes$end<-as.numeric(as.character(genes$end))
 
 
 ```{r}
-X<- data.frame(cluster=c("X","X","X","X","X"), 
-          chr=c("chrX","chrX","chrX", "chrX", "chrX"),
-          start_pos=c(71e6, 71.25e6, 71.45e6, 71.45e6, 47.05e6),
-          stop_pos=c(72e6, 71.75e6, 71.55e6, 71.55e6, 49.36e6))
+
+X<- data.frame(cluster=c("X","X","X","X","X","X"), 
+          chr=c("chrX","chrX","chrX", "chrX", "chrX", "chr9"),
+          start_pos=c(71e6, 71.25e6, 71.45e6, 71.45e6, 47.05e6, 84.302e6),
+          stop_pos=c(72e6, 71.75e6, 71.55e6, 71.55e6, 49.36e6, 84.305e6))
 B<-B[,c(g1,g2)]
 normB <- B-rowMeans(B[,control_index])
 
@@ -474,7 +479,7 @@ normB <- B-rowMeans(B[,control_index])
 #for(i in 1:nrow(built_layers[[6]]) ){
 #for(i in   which(built_layers[[6]]$unsigned_bin_sig > 0.99995 &  built_layers[[6]]$numCG > 50) ){
  # temp <- built_layers[[6]][i,]
-for(i in nrow(X)){
+for(i in 1:nrow(X)){
   temp<-X[i,]
   
   chr <- as.character(temp$chr)
@@ -524,14 +529,14 @@ for(j in 1:length(built_layers)){
   displayPars(layer_track[[j]]) <- list(col="grey20", fill="grey70", fontcolor.title="grey20")
 }
 gtrack<-GenomeAxisTrack()
-displayPars(gtrack) <- list(cex=cex_small,cex.id=4)
+displayPars(gtrack) <- list(cex=3, cex.id=4, fontcolor="grey20", col="grey20")
 itrack<-IdeogramTrack(genome=gen,chromosome = chr)
-displayPars(itrack) <- list(cex=cex_small,cex.bands=2)
+displayPars(itrack) <- list(cex=3,cex.bands=2, fontcolor="grey20")
 
   Region_name <- paste(chr, start, stop, sep="_")
   #filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/KAT6A/", Region_name , ".png", sep = "")
-  filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/", "chrX_" ,start, "_", stop, ".png", sep = "")
-  png(file=filename, width = 2400, height = 1500) ####### start writing 
+  filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/", chr,"_" ,start, "_", stop, ".png", sep = "")
+  png(file=filename, width = 1800, height = 800) ####### start writing 
   
   #plotTracks(list(itrack, gtrack, raw_beta_track, norm_beta_track, manhattan_track, grtrack,
   plotTracks(list(itrack, gtrack, raw_beta_track, norm_beta_track, grtrack,
@@ -547,6 +552,31 @@ displayPars(itrack) <- list(cex=cex_small,cex.bands=2)
   #  plotTracks(list(itrack, gtrack, raw_beta_track, norm_beta_track, manhattan_track, grtrack),
   #             from = start-1, to=stop+1, sizes =c(0.5,0.5,1,4,2,2) )
   dev.off() ####  stop writing
+  
+  
+  col_fun = colorRamp2(c(0,fdrscaler-fdrscaler*0.9,fdrscaler,max(atomic_layer$scoring_values)), c("grey30", "grey60", "grey60", "red"))
+  level = 2
+  ## 4^level - 1 = # segments
+  filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/Adjacent_CG_plot_", chr,"_" ,start, "_", stop, ".png", sep = "")  
+ # png(filename = filename, width = 600, height=200)
+  
+  hc_points <- atomic_layer[which,]
+  ggp <- ggplot(hc_points, aes(x=1:length(scoring_values), y=scoring_values)) +
+    geom_point(aes(color= scoring_values)) +
+    scale_color_gradient2(low="grey60", mid="grey30", high = "red", midpoint = fdrscaler)+
+  xlab("CG index over region") + ylab("-log10(pval)")+
+  ggtitle(paste("Adjacent_CG_plot_", chr,"_" ,start, "_", stop))+
+  theme_bw()+
+  theme(
+    plot.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank()
+  )
+  png(filename = filename, width = 300, height=200)
+  
+  plot(ggp)  
+  dev.off()
+  
 }  
 ```
 
@@ -742,20 +772,26 @@ plot(temp,rescale=F, layout=l*8)
 ```
 
 ```{r hilbert curves}
+library(circlize)
 
 library(HilbertCurve)
 
+col_fun = colorRamp2(c(0,fdrscaler-fdrscaler*0.9,fdrscaler,max(atomic_layer$scoring_values)), c("grey30", "grey60", "grey60", "red"))
+level = 5
+## 4^level - 1 = # segments
 
 png("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/Hilbert_curves_chr1.png", width = 600, height=600)
 
 hc_points <- atomic_layer[which(atomic_layer$chr=="chr1"),]
 hc_max <- nrow(hc_points)
+#np <- ceiling(hc_max / (4^level - 1))
+
 hc_col <- rep("grey10", nrow(hc_points))
 hc_col[which(hc_points$scoring_values>fdrscaler)] <- "red"
+hc_col <- col_fun(hc_points$scoring_values)
 hc_size <- hc_points$scoring_values / max(hc_points$scoring_values)
-hc <- HilbertCurve(s=1,e=hc_max, level = 4, reference = F)
-hc_points(hc, x1 = 1:nrow(hc_points), np = NULL, pch = 16, size = unit(hc_size*2, "mm"),gp = gpar(col = hc_col, fill = hc_col))
-
+hc <- HilbertCurve(s=1,e=hc_max, level = level, reference = F)
+hc_points(hc, x1 = 1:nrow(hc_points), np = NULL, pch=15, size = unit(hc_size*2, "mm"),gp = gpar(col = hc_col, fill = hc_col))
 
 dev.off()
 
@@ -766,10 +802,10 @@ hc_points <- atomic_layer[which(atomic_layer$chr=="chrX"),]
 hc_max <- nrow(hc_points)
 hc_col <- rep("grey10", nrow(hc_points))
 hc_col[which(hc_points$scoring_values>fdrscaler)] <- "red"
+hc_col <- col_fun(hc_points$scoring_values)
 hc_size <- hc_points$scoring_values / max(hc_points$scoring_values)
-hc <- HilbertCurve(s=1,e=hc_max, level = 5, reference = F)
-hc_points(hc, x1 = 1:nrow(hc_points), np = NULL, pch = 16, size = unit(hc_size*2, "mm"),gp = gpar(col = hc_col, fill = hc_col))
-
+hc <- HilbertCurve(s=1,e=hc_max, level = level, reference = F)
+hc_points(hc, x1 = 1:nrow(hc_points), np = NULL, pch=15, size = unit(hc_size*2, "mm"),gp = gpar(col = hc_col, fill = hc_col))
 
 
 dev.off()
@@ -780,8 +816,8 @@ hc_max <- nrow(hc_points)
 hc_col <- rep("grey10", nrow(hc_points))
 hc_col[which(hc_points$scoring_values>fdrscaler)] <- "red"
 hc_size <- (max(hc_points$scoring_values) - hc_points$scoring_values +1) / max(hc_points$scoring_values)
-hc <- HilbertCurve(s=1,e=hc_max, level = 5, reference = F)
-hc_points(hc, x1 = 1:nrow(hc_points), np = NULL, pch = 16, size = unit(hc_size*2, "mm"),gp = gpar(col = hc_col, fill = hc_col))
+hc <- HilbertCurve(s=1,e=hc_max, level = level, reference = F)
+hc_points(hc, x1 = 1:nrow(hc_points), np = NULL, pch=15, size = unit(hc_size*2, "mm"),gp = gpar(col = hc_col, fill = hc_col))
 
 dev.off()
 png("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/Hilbert_curves_chr1_inv.png", width = 600, height=600)
@@ -791,8 +827,8 @@ hc_max <- nrow(hc_points)
 hc_col <- rep("grey10", nrow(hc_points))
 hc_col[which(hc_points$scoring_values>fdrscaler)] <- "red"
 hc_size <- (max(hc_points$scoring_values) - hc_points$scoring_values +1) / max(hc_points$scoring_values)
-hc <- HilbertCurve(s=1,e=hc_max, level = 5, reference = F)
-hc_points(hc, x1 = 1:nrow(hc_points), np = NULL, pch = 16, size = unit(hc_size*2, "mm"),gp = gpar(col = hc_col, fill = hc_col))
+hc <- HilbertCurve(s=1,e=hc_max, level = level, reference = F)
+hc_points(hc, x1 = 1:nrow(hc_points), np = NULL, pch=15, size = unit(hc_size*2, "mm"),gp = gpar(col = hc_col, fill = hc_col))
 
 dev.off()
 ```
