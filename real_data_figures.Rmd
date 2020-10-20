@@ -39,6 +39,8 @@ group <- as.factor(group)
 color=c("blue", "seagreen3")
 linewide=c(5, 5 )
 
+g1 <- colnames(B)[patient_index]
+g2 <- colnames(B)[control_index]
 ```
 
 ```{r setup for Weaver analysis}
@@ -60,6 +62,33 @@ group[control_index] <- "control"
 group <- as.factor(group)
 color=c("blue", "seagreen3")
 linewide=c(5, 5 )
+
+g1 <- colnames(B)[patient_index]
+g2 <- colnames(B)[control_index]
+```
+
+```{r setup for Sotos analysis}
+load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sotos_GRset.funnorm.Rdata")
+load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sotos_dmrscaler_built_layers.Rdata")
+B<-getBeta(GRset.funnorm)
+pdat<-pData(GRset.funnorm)
+
+locs <- getLocations(GRset.funnorm)
+locs <- data.frame("names"=locs@ranges@NAMES, "pos"=locs@ranges@start, "chr" = rep(locs@seqnames@values, locs@seqnames@lengths))
+
+control_index <- grep("Control",pdat$Sample_Group)
+patient_index <- grep("Sotos", pdat$Sample_Group)
+
+group<-as.character(seq(from=1, to=ncol(B), by =1 ))
+group[patient_index] <- "Sotos"
+group[control_index] <- "control"
+
+group <- as.factor(group)
+color=c("blue", "seagreen3")
+linewide=c(5, 5 )
+
+g1 <- colnames(B)[patient_index]
+g2 <- colnames(B)[control_index]
 ```
 
 
@@ -85,8 +114,8 @@ normB <- B-rowMeans(B[,control_index])
 
 HOX <- data.frame(cluster=c("A","B","C","D"), 
           chr=c("chr7","chr17","chr12", "chr2"),
-          start_pos=c(27.1e6, 46.5e6, 54.3e6, 176.9e6),
-          stop_pos=c(27.3e6, 46.85e6, 54.5e6, 177.07e6))
+          start_pos=c(27.1e6, 46.60e6, 54.3e6, 176.9e6),
+          stop_pos=c(27.3e6, 46.72e6, 54.5e6, 177.07e6))
   
 #for(i in c(30,213,221)){
 #for(i in 1:nrow(built_layers[[6]]) ){
@@ -147,7 +176,7 @@ displayPars(itrack) <- list(cex=cex_small,cex.bands=2)
   
   Region_name <- paste(chr, start, stop, sep="_")
   #filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/KAT6A/", Region_name , ".png", sep = "")
-  filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/WEAVER/", "HOX" , HOX$cluster[i], ".png", sep = "")
+  filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/KAT6A/", "HOX" , HOX$cluster[i], ".png", sep = "")
   png(file=filename, width = 2400, height = 1500) ####### start writing 
     
   plotTracks(list(itrack, gtrack, raw_beta_track, norm_beta_track, manhattan_track, grtrack,
@@ -155,14 +184,13 @@ displayPars(itrack) <- list(cex=cex_small,cex.bands=2)
                   layer_track[[2]],
                   layer_track[[3]],
                   layer_track[[4]],
-                  layer_track[[5]],
-                  layer_track[[6]]
-                  ), from = start-1, to=stop+1, sizes =c(0.5,0.5,1,4,2,2,0.5,0.5,0.5,0.5,0.5,0.5) )
+                  layer_track[[5]]
+                  ), from = start-1, to=stop+1, sizes =c(0.5,0.5,1,4,2,2,0.5,0.5,0.5,0.5,0.5) )
   #  plotTracks(list(itrack, gtrack, raw_beta_track, norm_beta_track, manhattan_track, grtrack),
   #             from = start-1, to=stop+1, sizes =c(0.5,0.5,1,4,2,2) )
   dev.off() ####  stop writing
   
-  filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/WEAVER/",
+  filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/KAT6A/",
                  "HOX" , HOX$cluster[i],"_stat_summary", ".png", sep = "")
   png(file=filename, width = 1600, height = 1600) ####### start writing 
   p1 <- ~plot(1:length(which), atomic_layer$scoring_values[which])
@@ -201,5 +229,424 @@ displayPars(itrack) <- list(cex=cex_small,cex.bands=2)
 ```
 
 
+```{r}
+built_layers[[5]][which(is.element((built_layers[[5]]$stop_pos-built_layers[[5]]$start_pos),sort.int((built_layers[[5]]$stop_pos-built_layers[[5]]$start_pos), decreasing = TRUE)[1:10])),]
+
+B<-getBeta(GRset.funnorm)
+normB <- B-rowMeans(B[,control_index])
+
+HOX <- data.frame(cluster=c("A","B","C","D", "NotHox"), 
+          chr=c("chr7","chr17","chr12", "chr2", "chr5"),
+          start_pos=c(27.1e6, 46.6e6, 54.3e6, 176.9e6, 140.1e6),
+          stop_pos=c(27.3e6, 46.72e6, 54.5e6, 177.07e6, 140.81e6))
+
+## is CG j in a DMR a level i
+locs$dmr_layers <- 0
+pos_gr <- GRanges(seqnames = locs$chr, ranges = IRanges(start = locs$pos, width = 1))
+for(i in 1:length(built_layers)){
+    bl_gr <- GRanges(seqnames = built_layers[[i]]$chr, ranges = IRanges(start = built_layers[[i]]$start_pos, end = built_layers[[i]]$stop_pos))
+    locs$dmr_layers <- locs$dmr_layers + GenomicRanges::countOverlaps(pos_gr, bl_gr)
+    
+}
+
+     
 
 
+#for(i in c(30,213,221)){
+#for(i in 1:nrow(built_layers[[6]]) ){
+#for(i in   which(built_layers[[6]]$unsigned_bin_sig > 0.99995 &  built_layers[[6]]$numCG > 50) ){
+ # temp <- built_layers[[6]][i,]
+for(i in 1:nrow(HOX) ){
+  temp<-HOX[i,]
+  
+  chr <- as.character(temp$chr)
+  start <- temp$start_pos
+  stop <- temp$stop_pos
+  start <- temp$start_pos - floor((temp$stop_pos - temp$start_pos)/10)
+  stop <- temp$stop_pos + floor((temp$stop_pos - temp$start_pos)/10)
+  
+  genes_exons<-genes[which((genes$chr==chr) & (genes$start>=start) & (genes$end<=stop)),]
+  genes_exons<-droplevels(genes_exons)
+  genes_exons<-genes_exons[complete.cases(genes_exons),]
+  
+  cex_size=7
+  cex_small=5
+  gen<-"hg19"
+  
+  
+  which<-which(locs$chr==chr & locs$pos>=start & locs$pos<=stop )
+  Bt<-B[which,]
+  Bt_norm<-normB[which,]
+  
+  irange<-IRanges(start=locs[which,"pos"], width=1)
+  grange<-GRanges(seqnames=chr, ranges =  ranges(irange), mcols = Bt )
+  
+  manhattan_range <- GRanges(seqnames=chr, ranges =  ranges(irange), mcols = atomic_layer[which,] )
+  manhattan_track <- DataTrack(range = manhattan_range, data = atomic_layer[which,]$scoring_value, lwd=1.5, col.histogram=c("black"), type=c("hist"), ylim=c(0,max(atomic_layer$scoring_values)))
+
+  raw_beta_track<-DataTrack(range=grange, data=t(Bt), groups=group, genome=gen, name="Beta", col=color, lwd=linewide, type=c("a", "p", "confint"), fontcolor.title="grey20", col.axis="black", fontcolor.legend="grey20")
+  displayPars(raw_beta_track) <- list( cex.legend=3, cex.axis=2, cex.title=2 )
+  
+  norm_beta_track<-DataTrack(range=grange, data=t(Bt_norm), groups=group, genome=gen, name="Beta", col=color, lwd=linewide, type=c("a", "p", "confint"), fontcolor.title="grey20", col.axis="black", fontcolor.legend="grey20")
+  displayPars(norm_beta_track) <- list( cex.legend=3, cex.axis=2, cex.title=2 )
+  
+  
+  grtrack <- GeneRegionTrack(genes_exons, genome=gen, chromosome=chr, name="Gene Model", transcriptAnnotation="symbol",collapseTranscripts = "meta")
+  displayPars(grtrack) <- list( background.panel="white", col="grey20", fontsize=24, fontsize.group=38, fill = "grey50", lwd=2, fontcolor.group="grey20", fontcolor.title="grey20")
+  if( length(which)==0 ){
+    grtrack <- itrack
+  }
+  
+  layer_track <- list()
+for(j in 1:length(built_layers)){
+  layer_track[[j]] <- AnnotationTrack(start = built_layers[[j]]$start_pos, 
+                                      end =  built_layers[[j]]$stop_pos,
+                                      chromosome = built_layers[[j]]$chr,
+                                      strand = "*", genome = "hg19", name=paste("layer", j, sep = "_"))
+  displayPars(layer_track[[j]]) <- list(col="grey20", fill="grey70", fontcolor.title="grey20")
+}
+gtrack<-GenomeAxisTrack()
+displayPars(gtrack) <- list(cex=3, cex.id=4, fontcolor="grey20", col="grey20")
+itrack<-IdeogramTrack(genome=gen,chromosome = chr)
+displayPars(itrack) <- list(cex=3,cex.bands=2, fontcolor="grey20")
+
+  Region_name <- paste(chr, start, stop, sep="_")
+  #filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/KAT6A/", Region_name , ".png", sep = "")
+  filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/Sotos/HOX", temp$cluster, "_", chr,"_" ,start, "_", stop, ".png", sep = "")
+  png(file=filename, width = 1800, height = 800) ####### start writing 
+  
+  #plotTracks(list(itrack, gtrack, raw_beta_track, norm_beta_track, manhattan_track, grtrack,
+  plotTracks(list(itrack, gtrack, raw_beta_track, norm_beta_track, grtrack,
+                  layer_track[[1]],
+                  layer_track[[2]],
+                  layer_track[[3]],
+                  layer_track[[4]],
+                  layer_track[[5]]
+                  ),
+             from = start-1, to=stop+1, sizes =c(1,1,3,3,6,0.5,0.5,0.5,0.5,0.5),
+            background.title = "white"
+             )
+  #  plotTracks(list(itrack, gtrack, raw_beta_track, norm_beta_track, manhattan_track, grtrack),
+  #             from = start-1, to=stop+1, sizes =c(0.5,0.5,1,4,2,2) )
+  dev.off() ####  stop writing
+  
+  
+  ## 4^level - 1 = # segments
+  filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/Sotos/Adjacent_CG_plot_HOX",temp$cluster, chr,"_" ,start, "_", stop, ".png", sep = "")  
+ # png(filename = filename, width = 600, height=200)
+  
+  hc_points <- atomic_layer[which,]
+  ggp_sig_adj <- ggplot(hc_points, aes(x=1:length(scoring_values), y=scoring_values)) +
+    geom_segment(aes(xend=1:length(scoring_values), y=0, yend=scoring_values, alpha=0.5)) +
+    geom_point(aes(color= scoring_values)) +
+    #scale_color_gradient2(low="grey60", mid="grey30", high = "red", midpoint = fdrscaler)+
+    scale_color_gradientn(colors = c("grey60","grey30","red","red"),
+                          values=rescale(c(0,fdrscaler*0.9,fdrscaler,max(atomic_layer$scoring_values)),to=c(0,1)))+
+    # scale_color_gradientn(colors = c("blue","red","blue","red"),
+    #                       values=rescale(c(0,fdrscaler*0.9,fdrscaler,max(atomic_layer$scoring_values)),to=c(0,1)))+
+  xlab("CG index over region") + ylab("-log10(pval)")+
+  ylim(0,max(atomic_layer$scoring_values))+
+  ggtitle(paste("Adjacent_CG_plot_", chr,"_" ,start, "_", stop))+
+  ylab("-log10pval") +
+  theme_bw()+
+  theme(
+    plot.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_blank(), axis.title.x = element_blank(),
+    text = element_text(size=14, color = "black"),
+    axis.text = element_text(size=14, color = "black")
+  )
+  #png(filename = filename, width = 300, height=200)
+  
+  plot(ggp_sig_adj)  
+  #dev.off()
+  
+  
+  
+  df_betas <- cbind("index" = 1:length(which), locs[which,], "mean"= rowMeans2(B[which,g1]), "status"="Sotos" )
+  df_betas <- rbind(df_betas, cbind("index" = 1:length(which), locs[which,], "mean" = rowMeans2(B[which, g2]), "status"="control"))
+                    
+  ggp_beta_raw <- ggplot(df_betas)+
+    geom_line(aes(x=index, y=mean, group=names, alpha=0.5))+
+    geom_point(aes(x=index, y=mean, color=status))+
+    scale_color_manual(breaks = c("control", "Sotos"),values=color)+
+  ylab("Beta") +
+  theme_bw()+
+  theme(
+    plot.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_blank(), axis.title.x = element_blank(),
+    text = element_text(size=14, color = "black"),
+    axis.text = element_text(size=14, color = "black")
+  )
+  
+  plot(ggp_beta_raw)
+  
+    
+  df_betas <- cbind("index" = 1:length(which), locs[which,], "mean"= rowMeans2(normB[which,g1]), "status"="Sotos" )
+  df_betas <- rbind(df_betas, cbind("index" = 1:length(which), locs[which,], "mean" = rowMeans2(normB[which, g2]), "status"="control"))
+                    
+  ggp_beta_norm <- ggplot(df_betas)+
+    geom_line(aes(x=index, y=mean, group=names, alpha=0.5))+
+    geom_point(aes(x=index, y=mean, color=status))+
+    scale_color_manual(breaks = c("control", "Sotos"),values=color)+
+  ylab("Normalized Beta") +
+  theme_bw()+
+  theme(
+    plot.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_blank(), axis.title.x = element_blank(),
+    text = element_text(size=14, color = "black"),
+    axis.text = element_text(size=14, color = "black")
+  )
+  
+  plot(ggp_beta_norm) 
+  
+
+    temp <- cbind("index" = 1:length(which), locs[which,])
+    ggp_dmr_layers <- ggplot(temp)+
+  #  geom_line(aes(x=index, y=dmr_layers )) +
+  #  geom_point(aes(x=index, y=dmr_layers )) +
+    geom_bar(aes(x=index, y=dmr_layers, color=dmr_layers), fill="grey70",  stat="identity")+
+    scale_color_gradient(low="grey50", high = "grey50")+
+    scale_y_continuous(breaks = c(0,1,2,3,4,5), labels = c("none","64_CG_layer","32_CG_layer","16_CG_layer","8_CG_layer","4_CG_layer"))+
+    ylab("Layer") +
+    xlab("CG index over region") +
+    theme_bw()+
+    theme(
+      plot.background = element_blank(),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      text = element_text(size=14, color = "black"),
+      axis.text = element_text(size=14, color = "black")
+    )
+  plot(ggp_dmr_layers)
+
+  filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/Sotos/Adjacent_CG_plots_", chr,"_" ,start, "_", stop, ".png", sep = "")  
+  png(filename = filename, width = 800, height=600)
+
+    grid.newpage()
+  grid.draw(rbind(ggplotGrob(ggp_sig_adj), ggplotGrob(ggp_beta_raw), ggplotGrob(ggp_beta_norm), ggplotGrob(ggp_dmr_layers) ) )
+
+  dev.off() 
+}  
+
+```
+
+
+
+```{r hilbert curves}
+library(circlize)
+
+library(HilbertCurve)
+
+col_fun = colorRamp2(c(0,fdrscaler*0.99,fdrscaler,max(atomic_layer$scoring_values)), c("grey30", "grey60", "red", "red"))
+level = 6
+## 4^level - 1 = # segments
+for(i in 14){
+  filename <- paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/KAT6A/Hilbert_curves_chr_CLUSTHchr",i,".png", sep = "")
+  png(filename, width = 600, height=600)
+  
+  hc_points <- atomic_layer[which(atomic_layer$chr==paste("chr", i, sep = "")),]
+  
+  hc_points <- atomic_layer[which(atomic_layer$chr==paste("chr", i, sep = "")),]
+  hc_max <- nrow(hc_points)
+  #np <- ceiling(hc_max / (4^level - 1))
+  
+#  hc_col <- rep("grey10", nrow(hc_points))
+#  hc_col[which(hc_points$scoring_values>fdrscaler)] <- "red"
+  hc_col <- col_fun(hc_points$scoring_values)
+  hc_size <- hc_points$scoring_values / max(hc_points$scoring_values)
+#  hc_size <- hc_points$scoring_values / fdrscaler
+  hc <- HilbertCurve(s=1,e=hc_max, level = level, reference = F)
+  
+  hc_polygon(hc, IRanges(start=min(which(hc_points$pos >= HOX[5,]$start_pos)), end = max(which(hc_points$pos <= HOX[5,]$stop_pos))), gp = gpar(col = "blue")) 
+  hc_points(hc, x1 = 1:nrow(hc_points), np = NULL, pch=15, size = unit(hc_size*2, "mm"),gp = gpar(col = hc_col, fill = hc_col))
+  
+
+  dev.off()
+}
+
+```
+
+```{r bumphunter and dmrcate}
+#g1<-pdat$Basename[which(trimws(pdat$Sex)=="female")][1:8]
+#g2<-pdat$Basename[which(trimws(pdat$Sex)=="male")][1:8]
+M <- getM(GRset.funnorm)
+M <- M[,c(g1,g2)]
+B_mod<-B[,c(g1,g2)]
+                    ##   BUMPHUNTER  ##
+design<-rep(-1,length(colnames(B_mod)))
+design[which(is.element(colnames(B_mod),g1))]<-1
+design<-cbind(rep(1,length(colnames(B_mod) ) ), design )
+
+bumps_default <- bumphunter(B_mod,as.matrix(design),chr = locs$chr, pos=locs$pos, cutoff=0.1, B=250, smoothFunction=loessByCluster )
+
+bumps_1Mb <- bumphunter(B_mod,as.matrix(design),chr = locs$chr, pos=locs$pos, cutoff=0.1, maxGap=1e6, B=250, smoothFunction=loessByCluster )
+# 
+# temp_names <- paste("called", bumps4$table$chr, bumps4$table$start, sep = "_")
+# bh_called_grs <- GRanges(
+#   seqnames = bumps4$table$chr,
+#   ranges = IRanges(start = bumps4$table$start, end = bumps4$table$end, names = temp_names),
+#   strand = rep("*", nrow(bumps4$table))
+# )
+
+                ## DMRcate  ##
+
+M_mod<-M[,c(g1,g2)]
+colnames(design) <- c("(Intercept)","(Intercept)")
+myannotation <- cpg.annotate("array", M_mod, what="M", arraytype = "EPIC",analysis.type="differential", design=design, coef=2, fdr = 0.1)
+dmrcate_dmrs_default <- dmrcate(myannotation, lambda=1000, C=2)
+dmrcate_dmrs_default  <- extractRanges(dmrcate_dmrs_default , genome = "hg19")
+dmrcate_dmrs_1M <- dmrcate(myannotation, lambda=1e6, C=2000)
+dmrcate_dmrs_1M  <- extractRanges(dmrcate_dmrs_1M , genome = "hg19")
+```
+
+```{r make pretty table}
+test<-built_layers[[5]]
+test <- test[1:10,c(1:4,7)]
+
+library("gt")
+
+test_table <- gt(test, groupname_col = "chr") 
+test_table <- tab_header(test_table, title = "test", subtitle = "subtitle")
+test_table <- tab_spanner(test_table, label="position", columns = c("start_pos","stop_pos") )
+test_table
+
+results_table <- data.frame("method"=character(),
+                            "autosome_num_dmrs"=numeric(), 
+                            "autosome_avg_width"=numeric(),
+                            "autosome_median_width"=numeric(),                            
+                            "autosome_percent_total_width"=numeric())
+for( i in 1:length(built_layers)){
+  which_not <- which(built_layers[[i]]$chr != "chrX" & built_layers[[i]]$chr != "chrY")
+  results_table <- rbind(results_table,
+                         data.frame("method" = "dmrscaler", 
+                         "autosome_num_dmrs" = nrow(built_layers[[i]][which_not,]),
+                         "autosome_mean_width" = mean(built_layers[[i]]$stop_pos[which_not]-built_layers[[i]]$start_pos[which_not]),
+                         "autosome_median_width"= median(built_layers[[i]]$stop_pos[which_not]-built_layers[[i]]$start_pos[which_not]),               
+                         "autosome_percent_total_width" = -1 # add late
+                         ))
+  rownames(results_table)[i] <- paste("layer ",i,": ",layer_sizes[i] ," adjacent CpGs", sep = "")
+}
+
+### Add bumphunter results to table
+
+which_not <- which(bumps_default$table$chr != "chrX" & bumps_default$table$chr != "chrY")
+results_table <- rbind(results_table,
+                         data.frame("method" = "bumphunter", 
+                         "autosome_num_dmrs" = nrow(built_layers[[i]][which_not,]),
+                         "autosome_mean_width" = mean(bumps_default$table$end[which_not]-bumps_default$table$start[which_not]),
+                         "autosome_median_width"= median(bumps_default$table$end[which_not]-bumps_default$table$start[which_not]),                            
+                         "autosome_percent_total_width" = -1 # add late
+                         ))
+rownames(results_table)[length(rownames(results_table))] <- "default: maxGap = 500 bp"
+
+which_not <- which(bumps_1Mb$table$chr != "chrX" & bumps_1Mb$table$chr != "chrY")
+results_table <- rbind(results_table,
+                         data.frame("method" = "bumphunter", 
+                         "autosome_num_dmrs" = nrow(built_layers[[i]][which_not,]),
+                         "autosome_mean_width" = mean(bumps_1Mb$table$end[which_not]-bumps_1Mb$table$start[which_not]),
+                         "autosome_median_width"= median(bumps_1Mb$table$end[which_not]-bumps_1Mb$table$start[which_not]),                            
+                         "autosome_percent_total_width" = -1 # add late
+                         ))
+rownames(results_table)[length(rownames(results_table))] <- "maxGap = 1 Mb"
+
+
+### add dmrcate results to table
+widths <- width(dmrcate_dmrs_default)
+seqs <- as.character(seqnames(dmrcate_dmrs_default))
+
+which_not <- which(seqs != "chrX" & seqs != "chrY")
+results_table <- rbind(results_table,
+                         data.frame("method" = "dmrcate", 
+                         "autosome_num_dmrs" = length(which_not),
+                         "autosome_mean_width" = mean(widths[which_not]),
+                         "autosome_median_width"= median(widths[which_not]),                            
+                         "autosome_percent_total_width" = -1 # add late
+                         ))
+rownames(results_table)[length(rownames(results_table))] <- "default: lambda = 1 kb, C = 2 "
+
+widths <- width(dmrcate_dmrs_1M)
+seqs <- as.character(seqnames(dmrcate_dmrs_1M))
+
+which_not <- which(seqs != "chrX" & seqs != "chrY")
+results_table <- rbind(results_table,
+                         data.frame("method" = "dmrcate", 
+                         "autosome_num_dmrs" = length(which_not),
+                         "autosome_mean_width" = mean(widths[which_not]),
+                         "autosome_median_width"= median(widths[which_not]),                            
+                         "autosome_percent_total_width" = -1 # add late
+                         ))
+rownames(results_table)[length(rownames(results_table))] <- "lambda = 1 Mb, C = 2000"
+
+
+autosome_size <- 0
+for(i in 1:22){
+  chr <- paste("chr",i,sep = "")
+  autosome_size <- autosome_size + max(locs$pos[which(locs$chr==chr)])
+}
+
+results_table$autosome_percent_total_width <- results_table$autosome_mean_width * results_table$autosome_num_dmrs / autosome_size
+
+results_table$method_params <- rownames(results_table)
+
+clean_results_table <- gt(results_table, groupname_col = "method", rowname_col = "method_params") 
+clean_results_table <- tab_header(clean_results_table, title = "Sotos Analysis DMR Summary Table")
+clean_results_table <- tab_spanner(clean_results_table, label="Autosomes",
+                                   columns = c("autosome_num_dmrs","autosome_mean_width","autosome_median_width", "autosome_percent_total_width") )
+clean_results_table <- tab_stubhead(clean_results_table , "method")
+
+
+clean_results_table <- cols_label(clean_results_table,
+                                  autosome_num_dmrs = html(" #\n<br>DMRs "), autosome_mean_width = html(" mean\n<br>DMR width "),
+                                  autosome_median_width = html(" median\n<br>DMR width "), autosome_percent_total_width = html(" % total\n<br>width " ))
+
+
+
+clean_results_table <- fmt_number(clean_results_table, columns = vars( autosome_percent_total_width),
+                                  n_sigfig = 2, scale_by = 100, pattern = "{x}%")
+
+clean_results_table <- fmt_number(clean_results_table, columns = vars(autosome_mean_width),
+                                  rows = (autosome_mean_width >= 1e6),
+                                  decimals = 2, scale_by = 1/1e6, pattern = "{x} Mb")
+clean_results_table <- fmt_number(clean_results_table, columns = vars(autosome_mean_width),
+                                  rows = (autosome_mean_width > 1000) & (autosome_mean_width < 1e6),
+                                  decimals = 2, scale_by = 1/1000, pattern = "{x} kb")
+clean_results_table <- fmt_number(clean_results_table, columns = vars(autosome_mean_width),
+                                  rows = (autosome_mean_width <= 1000),
+                                  decimals = 0, pattern = "{x} bp")
+
+
+clean_results_table <- fmt_number(clean_results_table, columns = vars(autosome_median_width),
+                                  rows = (autosome_median_width >= 1e6),
+                                  decimals = 2, scale_by = 1/1e6, pattern = "{x} Mb")
+clean_results_table <- fmt_number(clean_results_table, columns = vars(autosome_median_width),
+                                  rows = (autosome_median_width > 1000) & (autosome_median_width < 1e6),
+                                  decimals = 2, scale_by = 1/1000, pattern = "{x} kb")
+clean_results_table <- fmt_number(clean_results_table, columns = vars(autosome_median_width),
+                                  rows = (autosome_median_width <= 1000),
+                                  decimals = 0, pattern = "{x} bp")
+
+
+clean_results_table
+
+gtsave(clean_results_table, filename = "/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/results/SOTOS/Sotos_Analysis_DMR_Summary_Table.png")
+ 
+# 
+#  fmt_scientific(
+#     columns = vars(num),
+#     rows = num <= 500,
+#     decimals = 1
+#   )
+#  fmt_number(
+#     columns = vars(num),
+#     rows = num > 500,
+#     decimals = 1,
+#     scale_by = 1/1000,
+#     pattern = "{x}K"
+#   )
+```
