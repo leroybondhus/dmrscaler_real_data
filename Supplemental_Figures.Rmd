@@ -1,0 +1,72 @@
+---
+title: "Supplemental_Figures"
+author: "Leroy_Bondhus"
+date: "October 20, 2020"
+output: html_document
+---
+
+
+```{r}
+filename=("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/Supplemental/Beta_dist.png")
+png(file=filename, width = 2000, height=1600, res=300 ) ####### start writing 
+hist(B, xlab = "Beta", main = "Distribution of Beta Values", breaks = 50)
+dev.off()
+
+
+mww <- wilcox.test()
+
+run_Ttest <- function(control_indices, case_indices, Beta) 
+{
+    p_val <- vector(mode = "numeric", length = nrow(Beta))
+    for (i in 1:nrow(Beta)) {
+        temp <- t.test(Beta[i, case_indices], y = Beta[i, 
+            control_indices], paired = FALSE)
+        p_val[i] <- temp$p.value
+    }
+    MWW <- data.frame(p_val)
+    rownames(MWW) <- rownames(Beta)
+    return(MWW)
+}
+
+ttres <- run_Ttest(control_indices = g1, case_indices = g2, Beta=B)
+mww <- run_MWW(control_indices = g1, case_indices = g2, Beta=B)
+plot(-log10(ttres$p_val),-log10(mww$p_val))
+
+df <- data.frame(T_test = -log10(ttres$p_val), Wilcox= -log10(mww$p_val))
+ggplot(df, aes(x=T_test, y=Wilcox))+
+  geom_bin2d()+
+  scale_fill_continuous(type = "viridis") +
+  theme_bw()
+
+samp <- sample(1:nrow(df), size=100000)
+df <- df[samp,]
+gg <- list()
+for(i in c(0,1,2,3)){
+  which<-which(df$T_test > i | df$Wilcox > i )
+  cor <- cor(x=df$T_test[which], y=df$Wilcox[which] ,method = "pearson")
+  gg[[i+1]] <- ggplot(df[which,], aes(x=Wilcox, y=T_test)) +
+    ggtitle(paste("CGs with Wilcox -log10p or T-test -log10p >", i, "\nPearson's Correlation =", round(cor,3)))+
+    stat_density_2d(aes(fill= ..level..),geom = "polygon",  n=50, h=1, alpha=0.8) +
+    geom_point(size=0.1, alpha=0.8)+
+    geom_abline(slope = 1, intercept = 0)+
+   # scale_fill_continuous(type="viridis") +
+    ylim(0,max(max(c(df$T_test,df$Wilcox))))+
+    xlim(0,max(max(c(df$T_test,df$Wilcox))))+
+    scale_fill_gradient(low="grey85", high="black")+
+    theme_bw()+
+    theme(
+      plot.background = element_blank(),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      text = element_text(size=14, color = "black"),
+      axis.text = element_text(size=14, color = "black")
+    )+
+    theme(legend.position = "none")
+  
+}
+
+filename="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/Supplemental/TvWtests.png"
+png(filename = filename, width = 8000, height=1600, res=300  )
+grid.arrange(gg[[1]],gg[[2]],gg[[3]],gg[[4]],ncol=4)
+dev.off()
+```
