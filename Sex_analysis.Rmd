@@ -402,38 +402,6 @@ gtsave(clean_results_table, filename = "/home/lbondhus/Desktop/PROJECTS/dmrscale
 ```
 
 
-```{r sex chrom analysis}
-
-library("chromPlot")
-data(hg_gap)
-hg_gap$Chrom<-paste("chr", hg_gap$Chrom, sep = "")
-chromPlot(gaps = hg_gap)
-data("hg_cytoBandIdeo")
-
-
-sex_built_layers <- built_layers
-
-for(i in 1:length(sex_built_layers)){
-  if(nrow(sex_built_layers[[i]])==0){next;}
-  png(filename = paste("./results/09282020_sex_analysis_chromX_", i, ".png", sep=""))
-  
-  sex_built_layers <- built_layers
-  sbl6 <- sex_built_layers[[i]] 
-  sbl6_2 <- data.frame("Chrom"=sbl6$chr, "Start"=sbl6$start_pos, "End"=sbl6$stop_pos, "Colors"="red", "ID"=paste(sbl6$chr,sbl6$start_pos, sep = "_"))
-  sbl6 <- data.frame("Chrom"=sbl6$chr, "Start"=sbl6$start_pos, "End"=sbl6$stop_pos, "Colors"="red")
-
-
-  chromPlot(bands = hg_cytoBandIdeo, gaps = hg_gap, segment=sbl6, stat = sbl6_2, figCols=4, statCol = "Value", statName = "Value", statTyp = "n", chr = c(1,2,"X", "Y"))
-  # chromPlot(bands = hg_cytoBandIdeo, gaps = hg_gap, segment=sbl6, stat = sbl6_2, statCol = "Value", statName = "Value", statTyp = "n", chr = "X")
- #   chromPlot(bands = hg_cytoBandIdeo, gaps = hg_gap, segment=sbl6, figCols = 8, stat = sbl6, statCol = "Value", statName = "Value", statTyp = "n")
-  dev.off()
-
-}
-
-
-
-```
-
 
 ```{r setup}
 
@@ -670,26 +638,19 @@ displayPars(itrack) <- list(cex=3,cex.bands=2, fontcolor="grey20")
 
 
 
-```{r make pretty table}
-
-built_layers
-
-```
-
-
 
 ```{r}
 
 library(networkD3)
 library(rjson)
 #built_layers_backup <- built_layers
-built_layers <- built_layers_backup
-#built_layers <- built_layers[3:5]
+#built_layers <- built_layers_backup
+built_layers <- built_layers[3:5]
 
 x_full_node_set <- list()
 for(j in 1:length(built_layers)){
- # x_which <- which(built_layers[[j]]$chr =="chrX")
-  x_which <- 1:length(built_layers[[j]]$chr)
+  x_which <- which(built_layers[[j]]$chr =="chrX")
+ # x_which <- 1:length(built_layers[[j]]$chr)
   x_base <- GenomicRanges::GRanges(seqnames = built_layers[[j]]$chr[x_which],
                                          IRanges(start = built_layers[[j]]$start_pos[x_which], end = built_layers[[j]]$stop_pos[x_which]  ))
   x_base_nodes <- list()
@@ -736,7 +697,8 @@ for(j in 2:length(x_full_node_set)){
 }
 
 #x_dmr_tree <- x_full_node_set[[3]][[1]]
-x_dmr_tree <- list("name"="root","children"=x_full_node_set[[5]])
+x_dmr_tree <- list("name"="root","children"=x_full_node_set[[3]])
+#x_dmr_tree <- list("name"="root","children"=x_full_node_set[[5]])
 
 x_dmr_tree_clean <- list()
 
@@ -758,8 +720,8 @@ library(data.tree)
 dtree <- as.Node(x_dmr_tree_clean)
 
 jsonData <- toJSON(x_dmr_tree_clean)
-#write(jsonData, "/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/sex_dmr_tree_output.json")
-write(jsonData, "/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/sex_dmr_tree_output_full.json")
+write(jsonData, "/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/sex_dmr_tree_output.json")
+#write(jsonData, "/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/sex_dmr_tree_output_full.json")
 
 library("webshot") ###  library to fix an obnoxious problem
 
@@ -770,10 +732,11 @@ webshot("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/All_chr
         "/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/All_all_layer_chrom_dmrs_radialNetwork.png")
 
 
-temp <- diagonalNetwork(List = x_dmr_tree_clean, fontSize = 16, fontFamily = "bold", nodeStroke = "black", linkColour = "black", opacity = 1,  margin=0, height = 800, width = 600)
-saveNetwork(temp,"/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/All_chrom_dmrs_diagonalNetwork.html" , selfcontained = T )
-webshot("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/All_chrom_dmrs_diagonalNetwork.html",
-        "/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/All_all_layer_chrom_dmrs_diagonalNetwork.png", vwidth = 600, vheight = 800)
+temp <- diagonalNetwork(List = x_dmr_tree_clean, fontSize = 18, fontFamily = "bold", nodeStroke = "black", linkColour = "black", opacity = 1,  margin=0, height = 800, width = 1000)
+saveNetwork(temp,"/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/X_chrom_dmrs_diagonalNetwork.html" , selfcontained = T )
+webshot("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/X_chrom_dmrs_diagonalNetwork.html",
+        "/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/X_chrom_dmrs_diagonalNetwork.png",
+        vheight = 800, vwidth = 1000, zoom =4 )
 
 ```
 
@@ -865,10 +828,10 @@ library(circlize)
 library(HilbertCurve)
 
 col_fun = colorRamp2(c(0,fdrscaler-fdrscaler*0.9,fdrscaler,max(atomic_layer$scoring_values)), c("grey30", "grey60", "grey60", "red"))
-level = 5
+level = 6
 ## 4^level - 1 = # segments
 
-png("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/Hilbert_curves_chr1.png", width = 600, height=600)
+png("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/Hilbert_curves_chr1.png", width = 3, height=3, units = "in", res=400)
 
 hc_points <- atomic_layer[which(atomic_layer$chr=="chr1"),]
 hc_max <- nrow(hc_points)
@@ -879,12 +842,12 @@ hc_col[which(hc_points$scoring_values>fdrscaler)] <- "red"
 hc_col <- col_fun(hc_points$scoring_values)
 hc_size <- hc_points$scoring_values / max(hc_points$scoring_values)
 hc <- HilbertCurve(s=1,e=hc_max, level = level, reference = F)
-hc_points(hc, x1 = 1:nrow(hc_points), np = NULL, pch=15, size = unit(hc_size*2, "mm"),gp = gpar(col = hc_col, fill = hc_col))
+hc_points(hc, x1 = 1:nrow(hc_points), np = NULL, pch=15, size = unit(1*hc_size, "mm"),gp = gpar(col = hc_col, fill = hc_col))
 
 dev.off()
 
 
-png("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/Hilbert_curves_chrX.png", width = 600, height=600)
+tiff("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/Hilbert_curves_chrX.tiff", width = 3, height=3, units = "in", res=400)
 
 hc_points <- atomic_layer[which(atomic_layer$chr=="chrX"),]
 hc_max <- nrow(hc_points)
@@ -893,10 +856,9 @@ hc_col[which(hc_points$scoring_values>fdrscaler)] <- "red"
 hc_col <- col_fun(hc_points$scoring_values)
 hc_size <- hc_points$scoring_values / max(hc_points$scoring_values)
 hc <- HilbertCurve(s=1,e=hc_max, level = level, reference = F)
-hc_points(hc, x1 = 1:nrow(hc_points), np = NULL, pch=15, size = unit(hc_size*2, "mm"),gp = gpar(col = hc_col, fill = hc_col))
-
-
+hc_points(hc, x1 = 1:nrow(hc_points), np = NULL, pch=15, size = unit(1*hc_size, "mm"),gp = gpar(col = hc_col, fill = hc_col))
 dev.off()
+
 png("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/Hilbert_curves_chrX_inv.png", width = 600, height=600)
 
 hc_points <- atomic_layer[which(atomic_layer$chr=="chrX"),]

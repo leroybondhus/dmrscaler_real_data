@@ -39,9 +39,16 @@ results_dir <-paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_simulation/result
 ```
 
 
-```{r setup XX data}
-load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Weaver_GRset.funnorm.Rdata")
+```{r setup Sotos data}
 load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sotos_GRset.funnorm.Rdata")
+pdat <- pData(GRset.funnorm)
+
+controls <- grep("Control",pdat$Sample_Group)
+cases <- grep("Sotos", pdat$Sample_Group)
+locs <- getLocations(GRset.funnorm)
+locs <- data.frame("names"=locs@ranges@NAMES, "pos"=locs@ranges@start, "chr" = rep(locs@seqnames@values, locs@seqnames@lengths))
+B <- getBeta(GRset.funnorm)
+
 ```
 
 ```{r setup KAT6A data}
@@ -102,7 +109,7 @@ B <- getBeta(GRset.funnorm)
       colnames(data)<-c("names","pos","chr")
       data$scoring_values <- mwr$p_val
     #  data$chr <- droplevels(data$chr)
-      layer_sizes <- c(2,4,8,16,32,64)
+      layer_sizes <- c(4,8,16,32,64)
       layers<-list()
       for(i in 1:length(layer_sizes)){
         print(paste("layer", i, sep="_"))
@@ -167,8 +174,12 @@ B <- getBeta(GRset.funnorm)
 
 
 ```{r Save Data Objects}
-save(built_layers, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/KAT6A_dmrscaler_built_layers.Rdata")
-#save(built_layers, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Weaver_dmrscaler_built_layers.Rdata")
+#save(atomic_layer,built_layers, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/KAT6A_dmrscaler_built_layers.Rdata")
+#save(atomic_layer,built_layers, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Weaver_dmrscaler_built_layers.Rdata")
+save(atomic_layer,built_layers, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sotos_dmrscaler_built_layers.Rdata")
 
 ```
+
+
+
 
