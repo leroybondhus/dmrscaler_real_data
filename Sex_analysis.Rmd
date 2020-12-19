@@ -218,6 +218,74 @@ dmrcate_dmrs_1M  <- extractRanges(dmrcate_dmrs_1M , genome = "hg19")
 
 
 
+```{r test lambda and C params} 
+B_mod<-B[,c(g1,g2)]
+design<-rep(-1,length(colnames(B_mod)))
+design[which(is.element(colnames(B_mod),g1))]<-1
+design<-cbind(rep(1,length(colnames(B_mod) ) ), design )
+M_mod<-M[,c(g1,g2)]
+colnames(design) <- c("(Intercept)","(Intercept)")
+myannotation <- cpg.annotate("array", M_mod, what="M", arraytype = "450K",analysis.type="differential", design=design, coef=2)
+dmrcate_dmrs_default <- dmrcate(myannotation, lambda=1000, C=2)
+
+df <- data.frame(lambda = character(), ratio = numeric(), C <-numeric(), percentile <- numeric(), width <- numeric() )
+for(lambda in c(1e3,5e3,1e4,5e4,1e5,5e5,1e6)){
+  for( r in c(500,1000,2000) ){
+    C <- lambda/r
+
+    dmrcate_results <- dmrcate(myannotation, lambda=lambda, C=C)
+    dmrcate_results <- extractRanges(dmrcate_results , genome = "hg19")
+    temp <- quantile(dmrcate_results@ranges@width, probs=seq(0,1,by=0.01))
+    df <- rbind(df, data.frame( lambda=rep(lambda,length(temp)), ratio=rep(r,length(temp)), C=rep(C,length(temp)),
+                                percentile = seq(0,1, by =0.01), width=temp))
+
+    
+  }
+}
+df$name <- paste("lambda=",df$lambda,"lambda/C=",df$ratio)
+ggplot(df, aes(x=percentile, y=log10(width),color=as.factor(lambda) ))+
+  geom_line()+
+  facet_grid(cols = vars("lambda/C"=ratio))
+}
+ggplot(df, aes(x=percentile, y=log10(width),color=as.factor(ratio) ))+
+  geom_line()+
+  facet_grid(cols = vars("lambda/C"=lambda))
+}
+
+
+
+df2 <- data.frame(lambda = character(), ratio = numeric(), C <-numeric(), width <- numeric() )
+for(lambda in c(1e3,5e3,1e4,5e4,1e5,5e5,1e6)){
+  for( r in c(500,1000,2000) ){
+    C <- lambda/r
+
+    dmrcate_results <- dmrcate(myannotation, lambda=lambda, C=C)
+    dmrcate_results <- extractRanges(dmrcate_results , genome = "hg19")
+    temp <- dmrcate_results@ranges@width
+    df2 <- rbind(df2, data.frame( lambda=rep(lambda,length(temp)), ratio=rep(r,length(temp)), C=rep(C,length(temp)),
+                                width=temp))
+
+  }
+}
+df2$name <- paste("lambda=",df$lambda,"lambda/C=",df2$ratio)
+
+gg <- ggplot(df2, aes(x=log10(width)))+
+  geom_histogram(aes(y = stat(..density..)))+
+  facet_grid(cols = vars(lambda), rows = vars(ratio))
+
+
+filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/Supplemental/DMRcate_Variable_Lambda_Sex.png", sep = "")
+png(filename = filename, width = 10, height = 6, units = "in", res = 300)
+grid.newpage()
+grid.arrange(gg, nrow=1)
+dev.off()  
+
+
+
+
+```
+
+
 ```{r}
 built_layers <- built_layers[which(unlist(lapply(built_layers,nrow)) != 0)]
 
