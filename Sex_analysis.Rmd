@@ -162,6 +162,11 @@ save(atomic_layer, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/int
 
 load(file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sex_8M_8F_built_layers.Rdata")              
 load(file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sex_8M_8F_atomic_layers.Rdata")
+
+for(i in 1:length(built_layers)){
+  write.csv(built_layers[[i]], paste(results_dir,"/SEX/dmrscaler_layer",i,".csv", sep = ""))
+}
+
 ```
 
 ```{r bumphunter and dmrcate}
@@ -174,9 +179,17 @@ design<-rep(-1,length(colnames(B_mod)))
 design[which(is.element(colnames(B_mod),g1))]<-1
 design<-cbind(rep(1,length(colnames(B_mod) ) ), design )
 
-bumps_default <- bumphunter(B_mod,as.matrix(design), cutoff=0.1 , chr = locs$chr, pos=locs$pos)
+bumps_default <- bumphunter(B_mod,as.matrix(design), cutoff=0.1 , chr = locs$chr,B=250, pos=locs$pos)
+## save output to csv
+#write.csv(bumps_default$table, paste(results_dir,"/SEX/bumps_default.csv", sep = ""))
+
+
 
 bumps_1Mb <- bumphunter(B_mod,as.matrix(design),chr = locs$chr, pos=locs$pos, cutoff=0.1, maxGap=1e6, B=250, smoothFunction=loessByCluster )
+## save output to csv
+#write.csv(bumps_1Mb$table, paste(results_dir,"/SEX/bumps_1Mb.csv", sep = ""))
+
+
 # 
 # temp_names <- paste("called", bumps4$table$chr, bumps4$table$start, sep = "_")
 # bh_called_grs <- GRanges(
@@ -191,8 +204,15 @@ M_mod<-M[,c(g1,g2)]
 colnames(design) <- c("(Intercept)","(Intercept)")
 myannotation <- cpg.annotate("array", M_mod, what="M", arraytype = "450K",analysis.type="differential", design=design, coef=2)
 dmrcate_dmrs_default <- dmrcate(myannotation, lambda=1000, C=2)
+## save output to csv
+#write.csv(dmrcate_dmrs_default$results, paste(results_dir,"/SEX/dmrcate_dmrs_default.csv", sep = ""))
 dmrcate_dmrs_default  <- extractRanges(dmrcate_dmrs_default , genome = "hg19")
+
 dmrcate_dmrs_1M <- dmrcate(myannotation, lambda=1e6, C=2000)
+## save output to csv
+#write.csv(dmrcate_dmrs_1M$results, paste(results_dir,"/SEX/dmrcate_dmrs_1M.csv", sep = ""))
+
+
 dmrcate_dmrs_1M  <- extractRanges(dmrcate_dmrs_1M , genome = "hg19")
 ```
 
@@ -407,14 +427,24 @@ gtsave(clean_results_table, filename = "/home/lbondhus/Desktop/PROJECTS/dmrscale
 
 control_index <- which(is.element(colnames(B),g1))
 patient_index <- which(is.element(colnames(B),g2))
+B <- B[,c(g1,g2)]
 
 group<-as.character(seq(from=1, to=ncol(B[,c(g1,g2)]), by =1 ))
 group[control_index] <- "female"
 group[patient_index] <- "male"
 
-group <- as.factor(group)
 color=c("blue", "seagreen3")
-linewide=c(2, 2 )
+linewide=c(2, 2)
+
+group<-as.character(seq(from=1, to=ncol(B[,c(g1,g2)])+1, by =1 ))
+delta_index <- length(group)
+group[control_index] <- "female"
+group[patient_index] <- "male"
+group[delta_index] <- "female - male"
+
+group <- factor(group, levels = c("female","male", "female - male"))
+color=c("blue", "seagreen3", "red")
+linewide=c(2, 2, 1)
 ```
 
 
@@ -441,8 +471,11 @@ X<- data.frame(cluster=c("X","X","X"),
           start_pos=c( 71.45e6, 47.05e6, 84.302e6),
           stop_pos=c(71.55e6, 49.36e6, 84.305e6))
 B<-B[,c(g1,g2)]
-normB <- B-rowMeans(B[,control_index])
+#normB <- B-rowMeans(B[,control_index])
+normB <- cbind(B, rowMeans(B[,control_index])-rowMeans(B[,patient_index]))
 controlMeans <- rowMeans(B[,control_index])
+deltaMeans <- rowMeans(B[,control_index])-rowMeans(B[,patient_index]) 
+deltaMeans <- data.frame(names = names(deltaMeans), deltaMeans=deltaMeans)
 
 ## is CG j in a DMR a level i
 locs$dmr_layers <- 0
@@ -480,6 +513,8 @@ for(i in c(1,3)){  #1:nrow(X)){
   
   which<-which(locs$chr==chr & locs$pos>=start & locs$pos<=stop )
   Bt<-B[which,]
+  #Bt <- normB[which,]
+  m <- min(Bt)
   Bt_norm<-normB[which,]
   cMeans<-controlMeans[which]
   
@@ -489,13 +524,19 @@ for(i in c(1,3)){  #1:nrow(X)){
   manhattan_range <- GRanges(seqnames=chr, ranges =  ranges(irange), mcols = atomic_layer[which,] )
   manhattan_track <- DataTrack(range = manhattan_range, data = atomic_layer[which,]$scoring_value, lwd=1.5, col.histogram=c("black"), type=c("hist"), ylim=c(0,max(atomic_layer$scoring_values)))
 
-  raw_beta_track<-DataTrack(range=grange, data=t(Bt), groups=group, genome=gen, name="Beta", col=color, type=c("a","g"), lwd=linewide, fontcolor.title="grey20", col.axis="black", fontcolor.legend="grey20", legend = FALSE, lwd.grid=0.8, col.grid="grey65", ylim=c(0,1))
+ # raw_beta_track<-DataTrack(range=grange, data=t(Bt), groups=group, genome=gen, name="Beta", col=color, type=c("a","g", "confint"), lwd=linewide, fontcolor.title="grey20", col.axis="black", fontcolor.legend="grey20", legend = FALSE, lwd.grid=0.8, col.grid="grey65",v=0,
+#                            ylim=c(min(t(Bt)),1))
+  
+  raw_beta_track<-DataTrack(range=grange, data=t(Bt), groups=group, genome=gen, name="Beta", col=color, type=c("a","g", "confint"), lwd=linewide, fontcolor.title="grey20", col.axis="black", fontcolor.legend="grey20", legend = TRUE, lwd.grid=0.8, col.grid="grey65",v=0 )
 
- # raw_beta_track<-DataTrack(range=grange, data=cMeans, genome=gen, name="Beta", col="black", type=c("b", "g"), fontcolor.title="grey20", col.axis="black", fontcolor.legend="grey20", ylim=c(0,1))
+  #raw_beta_track<-DataTrack(range=grange, data=cMeans, genome=gen, name="Beta", col="black", type=c("b", "g"), fontcolor.title="grey20", col.axis="black", fontcolor.legend="grey20", ylim=c(0,1))
   displayPars(raw_beta_track) <- list( cex.legend=1, cex.axis=1, cex.title=1 )
   
-  norm_beta_track<-DataTrack(range=grange, data=t(Bt_norm), groups=group, genome=gen, name="Delta Beta", col=color, lwd=linewide, type=c("a", "g" ,"confint"), fontcolor.title="grey20", col.axis="black", fontcolor.legend="grey20")
+ # norm_beta_track<-DataTrack(range=grange, data=t(Bt_norm), groups=group, genome=gen, name="Delta Beta", col=color, lwd=linewide, type=c("a", "g" ,"confint"), fontcolor.title="grey20", col.axis="black", fontcolor.legend="grey20")
   displayPars(norm_beta_track) <- list( cex.legend=1, cex.axis=1, cex.title=1 , lwd.grid=1, col.grid="grey80",v=0)
+  
+  norm_beta_track<-DataTrack(range=grange, data=deltaMeans[which,],  genome=gen, group ="delta", name="Delta Beta", col="black", type=c("a", "g"), fontcolor.title="grey20", col.axis="black", fontcolor.legend="grey20", legend = TRUE, baseline=0, col.baseline="black", lty.baseline=3)
+  displayPars(norm_beta_track) <- list( cex.legend=1, cex.axis=1, cex.title=1 , lwd.grid=1, col.grid="grey80",v=0,h=0)
   
   
   grtrack <- GeneRegionTrack(genes_exons, genome=gen, chromosome=chr, name="Gene Model", transcriptAnnotation="symbol",collapseTranscripts = "meta")
@@ -519,8 +560,8 @@ displayPars(itrack) <- list(cex=1,cex.bands=1, fontcolor="grey20")
 
   Region_name <- paste(chr, start, stop, sep="_")
   #filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/KAT6A/", Region_name , ".png", sep = "")
-  filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/FINAL_", chr,"_" ,start, "_", stop, ".png", sep = "")
-  png(file=filename, width = 4, height = 6, units = "in", res = 450) ####### start writing 
+  filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/FINALv2_", chr,"_" ,start, "_", stop, ".png", sep = "")
+  png(file=filename, width = 7, height = 6, units = "in", res = 450) ####### start writing 
   
   #plotTracks(list(itrack, gtrack, raw_beta_track, norm_beta_track, manhattan_track, grtrack,
   plotTracks(list(itrack, gtrack, raw_beta_track, norm_beta_track, grtrack,
@@ -530,19 +571,21 @@ displayPars(itrack) <- list(cex=1,cex.bands=1, fontcolor="grey20")
                   layer_track[[4]],
                   layer_track[[5]]
                   ),
-             from = start-1, to=stop+1, sizes =c(0.5,0.5,1,4,2,0.3,0.3,0.3,0.3,0.3),
+             from = start-1, to=stop+1, sizes =c(0.5,0.75,3.5,2,3,0.35,0.35,0.35,0.35,0.35),
             background.title = "white"
              )
   #  plotTracks(list(itrack, gtrack, raw_beta_track, norm_beta_track, manhattan_track, grtrack),
   #             from = start-1, to=stop+1, sizes =c(0.5,0.5,1,4,2,2) )
   dev.off() ####  stop writing
   
-  
+  normB <- B-rowMeans(B[,control_index])
   col_fun = colorRamp2(c(0,fdrscaler-fdrscaler*0.9,fdrscaler,max(atomic_layer$scoring_values)), c("grey30", "grey60", "grey60", "red"))
   level = 2
   ## 4^level - 1 = # segments
   filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/test1_Adjacent_CG_plot_", chr,"_" ,start, "_", stop, ".png", sep = "")  
  # png(filename = filename, width = 600, height=200)
+  
+  
   
   hc_points <- atomic_layer[which,]
   ggp_sig_adj <- ggplot(hc_points, aes(x=1:length(scoring_values), y=scoring_values)) +
@@ -559,7 +602,8 @@ displayPars(itrack) <- list(cex=1,cex.bands=1, fontcolor="grey20")
     panel.grid.minor = element_blank(),
     axis.text.x = element_blank(), axis.title.x = element_blank(),
     text = element_text(size=12, color = "black"),
-    axis.text = element_text(size=12, color = "black")
+    axis.text = element_text(size=12, color = "black"),
+    legend.position = "none"
   )
   #png(filename = filename,  width = 4, height = 6, units = "in", res = 450)
   
@@ -583,7 +627,8 @@ displayPars(itrack) <- list(cex=1,cex.bands=1, fontcolor="grey20")
     panel.grid.minor = element_blank(),
     axis.text.x = element_blank(), axis.title.x = element_blank(),
     text = element_text(size=12, color = "black"),
-    axis.text = element_text(size=12, color = "black")
+    axis.text = element_text(size=12, color = "black"),
+    legend.position = "none"
   )
   
   plot(ggp_beta_raw)
@@ -604,7 +649,8 @@ displayPars(itrack) <- list(cex=1,cex.bands=1, fontcolor="grey20")
     panel.grid.minor = element_blank(),
     axis.text.x = element_blank(), axis.title.x = element_blank(),
     text = element_text(size=12, color = "black"),
-    axis.text = element_text(size=12, color = "black")
+    axis.text = element_text(size=12, color = "black"),
+    legend.position = "none"
   )
   
   plot(ggp_beta_norm) 
@@ -625,12 +671,13 @@ displayPars(itrack) <- list(cex=1,cex.bands=1, fontcolor="grey20")
       panel.grid.major = element_blank(),
       panel.grid.minor = element_blank(),
       text = element_text(size=12, color = "black"),
-      axis.text = element_text(size=12, color = "black")
+      axis.text = element_text(size=12, color = "black"),
+      legend.position = "none"
     )
   plot(ggp_dmr_layers)
 
   filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/Adjacent_CG_plots_", chr,"_" ,start, "_", stop, ".png", sep = "")  
-  png(filename = filename, width = 7, height = 6, units = "in", res = 320)
+  png(filename = filename, width = 2.75, height = 4, units = "in", res = 320)
 
     grid.newpage()
   grid.draw(rbind(ggplotGrob(ggp_sig_adj), ggplotGrob(ggp_beta_raw), ggplotGrob(ggp_beta_norm), ggplotGrob(ggp_dmr_layers) ) )
@@ -647,18 +694,19 @@ displayPars(itrack) <- list(cex=1,cex.bands=1, fontcolor="grey20")
 library(networkD3)
 library(rjson)
 #built_layers_backup <- built_layers
-built_layers <- built_layers_backup
-built_layers <- built_layers[3:5]
+#built_layers <- built_layers_backup
+#built_layers <- built_layers[3:5]
 
 x_full_node_set <- list()
 for(j in 1:length(built_layers)){
-  x_which <- which(built_layers[[j]]$chr !="chrX")
- # x_which <- 1:length(built_layers[[j]]$chr)
+  #x_which <- which(built_layers[[j]]$chr =="chrX")
+  x_which <- 1:length(built_layers[[j]]$chr)
   x_base <- GenomicRanges::GRanges(seqnames = built_layers[[j]]$chr[x_which],
                                          IRanges(start = built_layers[[j]]$start_pos[x_which], end = built_layers[[j]]$stop_pos[x_which]  ))
   x_base_nodes <- list()
   for(i in 1:length(x_base)){
     temp_name <- paste(as.character(seqnames(x_base[i,])), start(x_base[i,]), end(x_base[i,]), sep = "_")
+   # temp_name <- paste(format(start(x_base[i,]),big.mark=","), format(end(x_base[i,]),big.mark=","), sep = " - ")
     temp_child <- list("name"= temp_name, "alt_name"= temp_name, "grange"=x_base[i,], "children"=list() )
     x_base_nodes[[i]] <-  list("name"= temp_name, "alt_name"= temp_name, "grange"=x_base[i,], "children"=list())
   }
@@ -700,8 +748,8 @@ for(j in 2:length(x_full_node_set)){
 }
 
 #x_dmr_tree <- x_full_node_set[[3]][[1]]
-x_dmr_tree <- list("name"="root","children"=x_full_node_set[[3]])
-#x_dmr_tree <- list("name"="root","children"=x_full_node_set[[5]])
+#x_dmr_tree <- list("name"="root","children"=x_full_node_set[[3]])
+x_dmr_tree <- list("name"="root","children"=x_full_node_set[[5]])
 
 x_dmr_tree_clean <- list()
 
@@ -728,18 +776,19 @@ write(jsonData, "/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediat
 
 library("webshot") ###  library to fix an obnoxious problem
 
-temp <- radialNetwork(List = x_dmr_tree_clean, fontSize = 12, fontFamily = "bold", nodeStroke = "black", linkColour = "#C0C0C0", opacity = 1, margin=0, height = 1600, width = 1600)
+temp <- radialNetwork(List = x_dmr_tree_clean, fontSize = 16, fontFamily = "bold", nodeStroke = "black", linkColour = "grey60", opacity = 1, margin=0, height = 1600, width = 1600)
 saveNetwork(temp,"/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/All_chrom_dmrs_radialNetwork.html" ,
             selfcontained = T)
 webshot("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/All_chrom_dmrs_radialNetwork.html",
-        "/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/All_all_layer_chrom_dmrs_radialNetwork.png")
+        "/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/All_all_layer_chrom_dmrs_radialNetwork.png",
+        zoom = 2)
 
 
-temp <- diagonalNetwork(List = x_dmr_tree_clean, fontSize = 24, fontFamily = "bold", nodeStroke = "black", linkColour = "black", opacity = 1,  margin=0, height = 800, width = 1200)
-saveNetwork(temp,"/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/FINAL_Auto_chrom_dmrs_diagonalNetwork.html" , selfcontained = T )
-webshot("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/FINAL_Auto_chrom_dmrs_diagonalNetwork.html",
-        "/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/FINAL_Auto_chrom_dmrs_diagonalNetwork.png",
-        vheight = 800, vwidth = 1200, zoom =4 )
+temp <- diagonalNetwork(List = x_dmr_tree_clean[[2]][[1]], fontSize = 12, fontFamily = "bold", nodeStroke = "black", linkColour = "black", opacity = 1,  margin=0, height = 400, width = 150)
+saveNetwork(temp,"/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/FINAL_X2_chrom_dmrs_diagonalNetwork.html" , selfcontained = T )
+webshot("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/FINAL_X2_chrom_dmrs_diagonalNetwork.html",
+        "/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/FINAL_X2_chrom_dmrs_diagonalNetwork.png",
+        vheight = 400, vwidth = 150 , zoom =10 )
 
 ```
 
@@ -831,20 +880,24 @@ library(circlize)
 
 library(HilbertCurve)
 
-col_fun = colorRamp2(c(0,fdrscaler-fdrscaler*0.9,fdrscaler,max(atomic_layer$scoring_values)), c("grey30", "grey60", "grey60", "red"))
+
+col_fun = colorRamp2(c(-max(atomic_layer$scoring_values),-fdrscaler,fdrscaler,max(atomic_layer$scoring_values)), c("cadetblue", "grey60", "grey60", "coral"))
+#col_fun = colorRamp2(c(0,fdrscaler-fdrscaler*0.9,fdrscaler,max(atomic_layer$scoring_values)), c("grey30", "grey60", "grey60", "red"))
 level = 6
 ## 4^level - 1 = # segments
 
-png("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/Hilbert_curves_chr1.png", width = 3, height=3, units = "in", res=400)
+png("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/SEX/direction_Hilbert_curves_chrX.png", width = 3, height=3, units = "in", res=400)
 
-hc_points <- atomic_layer[which(atomic_layer$chr=="chr1"),]
+hc_points <- atomic_layer[which(atomic_layer$chr=="chrX"),]
+which <- which( rowMeans2(B[which(atomic_layer$chr=="chrX"),g1]) < rowMeans2(B[which(atomic_layer$chr=="chrX"),g2])  ) ## g1 female
+hc_points[which,]$scoring_values <- -1 * hc_points[which,]$scoring_values 
 hc_max <- nrow(hc_points)
 #np <- ceiling(hc_max / (4^level - 1))
 
-hc_col <- rep("grey10", nrow(hc_points))
-hc_col[which(hc_points$scoring_values>fdrscaler)] <- "red"
+#hc_col <- rep("grey10", nrow(hc_points))
+#hc_col[which(abs(hc_points$scoring_values) >fdrscaler)] <- "red"
 hc_col <- col_fun(hc_points$scoring_values)
-hc_size <- hc_points$scoring_values / max(hc_points$scoring_values)
+hc_size <- abs(hc_points$scoring_values) / max(hc_points$scoring_values)
 hc <- HilbertCurve(s=1,e=hc_max, level = level, reference = F)
 hc_points(hc, x1 = 1:nrow(hc_points), np = NULL, pch=15, size = unit(1*hc_size, "mm"),gp = gpar(col = hc_col, fill = hc_col))
 
@@ -887,7 +940,225 @@ hc_points(hc, x1 = 1:nrow(hc_points), np = NULL, pch=15, size = unit(hc_size*2, 
 dev.off()
 ```
 
+```{r supplemental figures DMR width distributions and distribution summary tables}
 
+
+
+for(i in 1:length(built_layers)){
+  which <- which(built_layers[[i]]$chr == "chrX")
+  df <- data.frame(widths = built_layers[[i]]$stop_pos[which] - built_layers[[i]]$start_pos[which])
+  ggSex <- ggplot(df, aes(x=log10(widths)) )+
+    ggtitle(label = "X chromosome DMR widths",
+            subtitle = paste("DMRscaler layer", i, " AdjCGs:", layer_sizes[i], sep=""))+
+    geom_histogram(bins=50)+
+    xlim(0,8.5)+
+    theme(text=element_text(size=18))
+  
+  which <- which(built_layers[[i]]$chr != "chrX" & built_layers[[i]]$chr != "chrY"  )
+  df <- data.frame(widths = built_layers[[i]]$stop_pos[which] - built_layers[[i]]$start_pos[which])
+  ggAuto <- ggplot(df, aes(x=log10(widths)) )+
+    ggtitle(label = "Autosomes DMR widths",
+            subtitle = paste("DMRscaler layer", i, " AdjCGs:", layer_sizes[i], sep=""))+
+    geom_histogram(bins=50)+
+    xlim(0,8.5)+
+    theme(text=element_text(size=18))
+
+  filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/Supplemental/DMRscaler_SEX_width_distr_layer",i, ".png", sep = "")  
+  png(filename = filename, width = 10, height = 6, units = "in", res = 150)
+  grid.newpage()
+  
+  grid.arrange(ggSex, ggAuto, nrow=1)
+  dev.off()
+}
+
+
+#bumphunter
+which <- which(bumps_default$table$chr == "chrX")
+df <- data.frame(widths = bumps_default$table$end[which] - bumps_default$table$start[which])
+ggSex <- ggplot(df, aes(x=log10(widths)) )+
+  ggtitle(label = "X chromosome DMR widths",
+          subtitle = paste("bumphunter default", sep=""))+
+  geom_histogram(bins=50)+
+  xlim(0,8.5)+
+  theme(text=element_text(size=18))
+
+which <- which(bumps_default$table$chr != "chrX" & bumps_default$table$chr != "chrY"  )
+df <- data.frame(widths = bumps_default$table$end[which] - bumps_default$table$start[which])
+ggAuto <- ggplot(df, aes(x=log10(widths)) )+
+  ggtitle(label = "Autosome widths",
+          subtitle = paste("bumphunter default", sep=""))+
+  geom_histogram(bins=50)+
+  xlim(0,8.5)+
+  theme(text=element_text(size=18))
+
+filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/Supplemental/bumphunter_default_SEX_width_distr.png", sep = "")  
+png(filename = filename, width = 10, height = 6, units = "in", res = 150)
+grid.newpage()
+grid.arrange(ggSex, ggAuto, nrow=1)
+dev.off()  
+
+
+## dmrcate  
+which <- which( dmrcate_dmrs_1M@seqnames == "chrX")  
+df <- data.frame(widths = dmrcate_dmrs_1M@ranges@width[which])
+ggSex <- ggplot(df, aes(x=log10(widths)) )+
+  ggtitle(label = "X chromosome DMR widths",
+          subtitle = paste("DMRcate 1Mb", sep=""))+
+  geom_histogram(bins=50)+
+  xlim(0,8.5)+
+  theme(text=element_text(size=18))
+
+which <- which(dmrcate_dmrs_1M@seqnames != "chrX" & dmrcate_dmrs_1M@seqnames!= "chrY"  )
+df <- data.frame(widths = dmrcate_dmrs_1M@ranges@width[which])
+ggAuto <- ggplot(df, aes(x=log10(widths)) )+
+  ggtitle(label = "Autosome chromosome DMR widths",
+          subtitle = paste("DMRcate 1Mb", sep=""))+
+  geom_histogram(bins=50)+
+  xlim(0,8.5)+
+  theme(text=element_text(size=18))
+
+filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/Supplemental/DMRcate_1Mb_SEX_width_distr.png", sep = "")
+png(filename = filename, width = 10, height = 6, units = "in", res = 150)
+grid.newpage()
+grid.arrange(ggSex, ggAuto, nrow=1)
+dev.off()  
+
+
+### write csvs of percentile widths ###
+quants <- data.frame(percentile = numeric(), value = numeric(), method = character(), pars = character(), chrs = character())
+for(i in 1:length(built_layers)){
+  which <- which(built_layers[[i]]$chr == "chrX")
+  temp <- quantile(log10(built_layers[[i]]$stop_pos[which] - built_layers[[i]]$start_pos[which]), seq(0.01,1,by=0.01), type=1)
+  quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                     method = "DMRscaler", pars = paste("DMRscaler_layer",i,sep = ""), chrs="chrX"))
+  which <- which(built_layers[[i]]$chr != "chrX" & built_layers[[i]]$chr != "chrY")
+  temp <- quantile(log10(built_layers[[i]]$stop_pos[which] - built_layers[[i]]$start_pos[which]), seq(0.01,1,by=0.01), type=1)
+  quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                     method = "DMRscaler", pars = paste("DMRscaler_layer",i,sep = ""), chrs="Autosome"))
+}
+
+which <- which(bumps_default$table$chr == "chrX")
+temp <- quantile(log10(bumps_default$table$end[which] - bumps_default$table$start[which]), seq(0.01,1,by=0.01), type=1)
+quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                      method = "bumphunter",pars="bumphunter_default", chrs="chrX"))
+which <- which(bumps_default$table$chr != "chrX" & bumps_default$table$chr != "chrY" )
+temp <- quantile(log10(bumps_default$table$end[which] - bumps_default$table$start[which]), seq(0.01,1,by=0.01), type=1)
+quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                     method = "bumphunter",pars="bumphunter_default", chrs="Autosome"))
+
+which <- which(bumps_1Mb$table$chr == "chrX")
+temp <- quantile(log10(bumps_1Mb$table$end[which] - bumps_1Mb$table$start[which]), seq(0.01,1,by=0.01), type=1)
+quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                     method = "bumphunter",pars="bumphunter:maxWidth=1Mb", chrs="chrX"))
+which <-  which(bumps_1Mb$table$chr != "chrX" & bumps_1Mb$table$chr != "chrY" )
+temp <- quantile(log10(bumps_1Mb$table$end[which] - bumps_1Mb$table$start[which]), seq(0.01,1,by=0.01), type=1)
+quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                     method = "bumphunter",pars="bumphunter:maxWidth=1Mb", chrs="Autosome"))
+
+which <- which(dmrcate_dmrs_default@seqnames == "chrX")
+temp <- quantile(log10(dmrcate_dmrs_default@ranges@width[which]), seq(0.01,1,by=0.01), type=1)
+quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                     method = "DMRcate",pars="dmrcate_default", chrs="chrX"))
+which <-  which(dmrcate_dmrs_default@seqnames != "chrX" & dmrcate_dmrs_default@seqnames != "chrY" )
+temp <- quantile(log10(dmrcate_dmrs_default@ranges@width[which]), seq(0.01,1,by=0.01), type=1)
+quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                     method = "DMRcate",pars="dmrcate_default", chrs="Autosome"))
+
+which <- which(dmrcate_dmrs_1M@seqnames == "chrX")
+temp <- quantile(log10(dmrcate_dmrs_1M@ranges@width[which]), seq(0.01,1,by=0.01), type=1)
+quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                     method = "DMRcate",pars="dmrcate:lambda=1Mb,C=2000", chrs="chrX"))
+which <-  which(dmrcate_dmrs_1M@seqnames != "chrX" & dmrcate_dmrs_1M@seqnames != "chrY" )
+temp <- quantile(log10(dmrcate_dmrs_1M@ranges@width[which]), seq(0.01,1,by=0.01), type=1)
+quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                     method = "DMRcate",pars="dmrcate:lambda=1Mb,C=2000", chrs="Autosome"))
+
+
+gg<-ggplot(quants, aes(x=percentile, y=value, color=pars))+
+  geom_line()+
+  ylab("-log10(Width)")+
+  facet_grid(rows = vars(chrs),cols = vars(method) )+
+  theme(text=element_text(size=18))
+
+filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/Supplemental/SEX_Width_Percentile_Plot.png", sep = "")
+png(filename = filename, width = 10, height = 6, units = "in", res = 240)
+grid.newpage()
+grid.arrange(gg, nrow=1)
+dev.off()  
+
+quants$width <- 10^quants$value
+filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/Supplemental/SEX_Width_Percentile.csv", sep = "")
+write.csv(file = filename, quants)
+
+```
+
+
+
+```{r Supplemental Figure Neighboring CG correlation}
+
+chrs <- unique(locs$chr)
+d1 <- numeric()
+d2 <- numeric()
+d3 <- numeric()
+for(i in 1:22){
+  which <- which(locs$chr == chrs[i])
+  mi <- min(which)
+  ma <- max(which)
+  d1 <- c(d1,rowMeans2(B[mi:(ma-1),g1])) ## min to max-1
+
+  d2 <- c(d2,rowMeans2(B[(mi+1):ma, g1])) ## min+1 to max ## Pairs are then i,i+1
+  d3 <- c(d3, log10( locs$pos[(mi+1):ma] - locs$pos[mi:(ma-1)])  )
+}
+
+gg <- list()
+for(i in 1:6){
+  which <- which(d3 > i-1 & d3 < i )
+  df <- data.frame(d1 = d1[which],d2 = d2[which])
+  gg[[i]] <- ggplot(df, aes(x=d1, y=d2) ) +
+  geom_bin2d(bins = 70, aes(fill = stat(log(count))) ) +
+    ggtitle(label=paste("CGs ", 10^(i-1), " to ", 10^i, " bp apart. Cor=",round(cor(df$d1,df$d2),2) ))+
+  #stat_density_2d(aes(fill = ..level..), geom = "polygon", colour="white")+
+#  geom_point()+
+  scale_fill_continuous(type = "viridis") +
+  theme_bw()
+  #plot(gg)
+  print(cor(df$d1,df$d2))
+}
+
+filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/Supplemental/Supplement_neighboring_CG_cor", ".png", sep = "")  
+png(filename = filename, width = 16, height = 8, units = "in", res = 150)
+
+    grid.newpage()
+  grid.arrange(gg[[1]],gg[[2]], gg[[3]],
+            gg[[4]], gg[[5]], gg[[6]], nrow=2
+            ) 
+  dev.off() 
+
+quants_df <- data.frame(name=character(), percentile=numeric(), delta_beta=numeric())
+interval_nums <- c(1,1e1,5e1,1e2,5e2,1e3,5e3,1e4,5e4,1e5,5e5) 
+for(i in 1:(length(interval_nums)-1)){
+  name = paste("between ",interval_nums[i]," - ", interval_nums[i+1], " bp")
+  which <- which( (10^d3) >= interval_nums[i] & (10^d3) < interval_nums[i+1]  )
+  temp <- quantile(abs(d2[which]-d1[which]),seq(0,1,0.01)) 
+  quants_df <- rbind(quants_df, data.frame(name = name, percentile=seq(0,1,0.01), delta_beta=temp ))
+}
+gg <- ggplot(quants_df, aes(x=percentile, y=delta_beta, color=name))+
+  geom_line(size=1.3, alpha=0.7)+
+  scale_y_continuous(breaks=seq(0,1,0.1))+
+  scale_x_continuous(breaks=seq(0,1,0.1))+
+  scale_color_brewer(palette = "RdBu" )+
+  theme_dark( )+
+  theme(panel.grid = element_line(color="white"), text=element_text(size=16), axis.text = element_text(size=24))
+quantile(abs(d2[which]-d1[which]),seq(0,1,0.01))
+
+filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/Supplemental/Supplement_neighboring_CG_percentiles", ".png", sep = "")  
+png(filename = filename, width = 14, height = 10, units = "in", res = 150)
+
+    grid.newpage()
+  grid.arrange(gg) 
+  dev.off() 
+    
+```
 
 
 
