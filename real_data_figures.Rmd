@@ -21,6 +21,7 @@ library(HilbertCurve)
 ```{r setup for KAT6A analysis}
 load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/KAT6A_GRset.funnorm.Rdata")
 load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/KAT6A_dmrscaler_built_layers.Rdata")
+load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/450k_KAT6A_dmrscaler_built_layers.Rdata")
 
 B<-getBeta(GRset.funnorm)
 M<-getM(GRset.funnorm)
@@ -45,12 +46,17 @@ linewide=c(2, 2)
 g1 <- colnames(B)[patient_index]
 g2 <- colnames(B)[control_index]
 
+kws_dat <- list("KAT6A" = list(B=B,locs=locs,patient_index=patient_index,control_index=control_index,
+                               atomic_layer=atomic_layer, built_layers=built_layers))
 
 ```
 
 ```{r setup for Weaver analysis}
 load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Weaver_GRset.funnorm.Rdata")
 load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Weaver_dmrscaler_built_layers.Rdata")
+load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/850k_Weaver_dmrscaler_built_layers.Rdata")
+
+
 B<-getBeta(GRset.funnorm)
 M<-getM(GRset.funnorm)
 pdat<-pData(GRset.funnorm)
@@ -71,11 +77,19 @@ linewide=c(2, 2 )
 
 g1 <- colnames(B)[patient_index]
 g2 <- colnames(B)[control_index]
+
+
+kws_dat[["Weaver"]] <-list(B=B, locs=locs, patient_index=patient_index, control_index=control_index,
+                           atomic_layer=atomic_layer, built_layers=built_layers )
+
 ```
 
 ```{r setup for Sotos analysis}
 load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sotos_GRset.funnorm.Rdata")
 load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sotos_dmrscaler_built_layers.Rdata")
+load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/850k_Sotos_dmrscaler_built_layers.Rdata")
+
+
 B<-getBeta(GRset.funnorm)
 M<-getM(GRset.funnorm)
 pdat<-pData(GRset.funnorm)
@@ -96,6 +110,12 @@ linewide=c(2, 2 )
 
 g1 <- colnames(B)[patient_index]
 g2 <- colnames(B)[control_index]
+
+
+
+kws_dat[["Sotos"]] <-list(B=B, locs=locs, patient_index=patient_index, control_index=control_index,
+                          atomic_layer=atomic_layer, built_layers=built_layers )
+
 ```
 
 
@@ -644,3 +664,351 @@ gtsave(clean_results_table, filename = "/home/lbondhus/Desktop/PROJECTS/dmrscale
 #     pattern = "{x}K"
 #   )
 ```
+
+
+
+```{r dmr gene analysis}
+genes <- gtf_df[which(gtf_df$gene_biotype =="protein_coding" ),]
+genes <- genes[which(genes$gene_source=="ensembl_havana"),]
+genes <- genes[which(genes$type=="gene" ),]
+
+gene_ranges <- GRanges(seqnames = genes$seqnames, IRanges(start = genes$start, width = genes$width))
+dmr_ranges <- GRanges(seqnames = built_layers[[5]]$chr, IRanges(start = built_layers[[5]]$start_pos, end = built_layers[[5]]$stop_pos))
+
+built_layers[[5]]$gene_overlap_count <- countOverlaps(dmr_ranges, gene_ranges)
+table(countOverlaps(dmr_ranges, gene_ranges))
+
+for(i in 1:length(dmr_ranges)){
+  temp <- findOverlaps(dmr_ranges[i], gene_ranges)
+  built_layers[[5]]$genes_overlapped[i] <- paste(genes[temp@to,]$gene_name, collapse = "," )
+}
+
+built_layers[[5]]$width <- built_layers[[5]]$stop_pos - built_layers[[5]]$start_pos
+
+dmr_ranges[which(countOverlaps(dmr_ranges, gene_ranges) > 5)]
+temp <- findOverlaps(dmr_ranges[which(countOverlaps(dmr_ranges, gene_ranges) > 5)], gene_ranges)
+temp <- genes[temp@to,]
+```
+```{r funcs for kws overlap analysis}
+
+frac_dbeta_same_dir <- function(gr12, B1, atom1, case1, B2, case2, atom2){
+    num_sig <- numeric(length = length(gr12))
+    frac_shared_sig <- numeric(length = length(gr12))
+    frac_sig_same_dir <- numeric(length = length(gr12))
+    for(i in 1:length(gr12)){
+      #print(i)
+      chr <- as.character(gr12@seqnames)[i]
+      start <- start(gr12)[i]
+      end <- end(gr12)[i]
+      control1 <- (1:ncol(B1))[-case1]
+      control2 <- (1:ncol(B2))[-case2]
+      
+      cgs <- which(atom1$chr == chr & atom1$pos <= end & atom1$pos >= start)
+      
+      ##hyper (caseBeta > controlBeta)
+      if(length(cgs)==1){ 
+        hyper1 <- mean(B1[cgs,case1]) > mean(B1[cgs,control1])
+        hyper2 <- mean(B2[cgs,case2]) > mean(B2[cgs,control2]);
+      }
+      else{
+        hyper1 <- ( rowMeans2(B1[cgs,case1]) > rowMeans2(B1[cgs,control1]) ) 
+        hyper2 <- ( rowMeans2(B2[cgs,case2]) > rowMeans2(B2[cgs,control2]) ) 
+      }
+      sig1 <- (atom1$scoring_values[cgs] >1) ## 1 corresponds to FDR = 0.1 based on scoring func
+      sig2 <- (atom2$scoring_values[cgs] >1) ## 1 corresponds to FDR = 0.1 based on scoring func
+      num_sig[i] <- sum(sig1 | sig2)
+      frac_shared_sig[i] <- sum(sig1 & sig2) / sum(sig1 | sig2)
+      frac_sig_same_dir[i] <- sum((hyper1 == hyper2) & sig1 & sig2 )  / sum(sig1 & sig2)
+      if(is.na(frac_sig_same_dir[i])){frac_sig_same_dir[i] = 0}
+    }
+    return( data.frame(num_sig = num_sig, frac_shared_sig = frac_shared_sig, frac_sig_same_dir = frac_sig_same_dir ))
+  }
+```
+
+```{r kat6a-weaver-sotos overlap analysis}
+genes <- gtf_df[which(gtf_df$gene_biotype =="protein_coding" ),]
+genes <- genes[which(genes$gene_source=="ensembl_havana"),]
+genes <- genes[which(genes$type=="gene" ),]
+genes <- genes[,!(colSums(!is.na(genes))==0)]
+gene_ranges <- GRanges(seqnames = genes$seqnames, IRanges(start = genes$start, width = genes$width))
+
+#kws_dat_cp <- kws_dat
+kws_dat <- kws_dat_cp
+
+## overlap K-W, K-S, W-S, K-W-S
+## feature overlap, bp overlap
+## match layers 4-4, 8-8, 16-16, etc
+## % same direction (hypo or hyper)
+## genes overlapped
+## OR+-CI cgs, OR+-CI gene sets, OR+-CI region
+results_dir = "/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/results/OVERLAPS/"
+  
+geneset_overlaps = data.frame(layer=numeric(), overlap_between = character(), gene = character())
+range_overlaps <- data.frame(layer=numeric(), datasets=character(),
+                             seqnames = character(), start = numeric(), width = numeric(),
+                             overlapping_genes = character(), gene_overlap_count = numeric(),
+                             num_cg_sig = numeric(), frac_shared_sig = numeric(), frac_sig_same_dir = numeric())  
+
+for(layer_num in 1:length(kws_dat$KAT6A$built_layers)){  
+  gr_k <- GRanges(seqnames = kws_dat$KAT6A$built_layers[[layer_num]]$chr,
+                     IRanges(start = kws_dat$KAT6A$built_layers[[layer_num]]$start_pos, 
+                             end = kws_dat$KAT6A$built_layers[[layer_num]]$stop_pos))
+  gr_s <- GRanges(seqnames = kws_dat$Sotos$built_layers[[layer_num]]$chr,
+                     IRanges(start = kws_dat$Sotos$built_layers[[layer_num]]$start_pos, 
+                             end = kws_dat$Sotos$built_layers[[layer_num]]$stop_pos))
+  gr_w <- GRanges(seqnames = kws_dat$Weaver$built_layers[[layer_num]]$chr,
+                     IRanges(start = kws_dat$Weaver$built_layers[[layer_num]]$start_pos, 
+                             end = kws_dat$Weaver$built_layers[[layer_num]]$stop_pos))
+  for(i in 1:length(gr_k)){
+    temp <- findOverlaps(gr_k[i], gene_ranges)
+    gr_k$overlapping_genes[i] <- paste(genes[temp@to,]$gene_name, collapse = "," )
+    gr_k$gene_overlap_count[i] <- countOverlaps(gr_k[i], gene_ranges)
+  }
+  for(i in 1:length(gr_s)){
+    temp <- findOverlaps(gr_s[i], gene_ranges)
+    gr_s$overlapping_genes[i] <- paste(genes[temp@to,]$gene_name, collapse = "," )
+    gr_s$gene_overlap_count[i] <- countOverlaps(gr_s[i], gene_ranges)
+  }
+  for(i in 1:length(gr_w)){
+    temp <- findOverlaps(gr_w[i], gene_ranges)
+     gr_w$overlapping_genes[i] <- paste(genes[temp@to,]$gene_name, collapse = "," )
+     gr_w$gene_overlap_count[i] <- countOverlaps(gr_w[i], gene_ranges)
+  }
+  temp <- frac_dbeta_same_dir( gr12 = gr_k,
+                               B1 = kws_dat$KAT6A$B, atom1 = kws_dat$KAT6A$atomic_layer,
+                               case1 = kws_dat$KAT6A$patient_index,
+                               B2 = kws_dat$KAT6A$B, atom2 = kws_dat$KAT6A$atomic_layer,
+                               case2 = kws_dat$KAT6A$patient_index)
+  gr_k$num_cg_sig <- temp$num_sig
+  gr_temp <- gr_k
+  temp <- data.frame(layer=layer_num, datasets="KAT6A",
+                     seqnames=as.character(seqnames(gr_temp)),start=start(gr_temp), width=width(gr_temp),
+                     overlapping_genes=gr_temp$overlapping_genes, gene_overlap_count=gr_temp$gene_overlap_count,
+                     num_cg_sig=gr_temp$num_cg_sig, frac_shared_sig=NA, frac_sig_same_dir=NA)
+  range_overlaps <- rbind(range_overlaps,temp)
+  
+  temp <- frac_dbeta_same_dir( gr12 = gr_s,
+                               B1 = kws_dat$Sotos$B, atom1 = kws_dat$Sotos$atomic_layer,
+                               case1 = kws_dat$Sotos$patient_index,
+                               B2 = kws_dat$Sotos$B, atom2 = kws_dat$Sotos$atomic_layer,
+                               case2 = kws_dat$Sotos$patient_index)
+  gr_s$num_cg_sig <- temp$num_sig
+  gr_temp <- gr_s
+  temp <- data.frame(layer=layer_num, datasets="Sotos",
+                     seqnames=as.character(seqnames(gr_temp)),start=start(gr_temp), width=width(gr_temp),
+                     overlapping_genes=gr_temp$overlapping_genes, gene_overlap_count=gr_temp$gene_overlap_count,
+                     num_cg_sig=gr_temp$num_cg_sig, frac_shared_sig=NA, frac_sig_same_dir=NA)
+  range_overlaps <- rbind(range_overlaps,temp)
+  
+  temp <- frac_dbeta_same_dir( gr12 = gr_w,
+                               B1 = kws_dat$Weaver$B, atom1 = kws_dat$Weaver$atomic_layer,
+                               case1 = kws_dat$Weaver$patient_index,
+                               B2 = kws_dat$Weaver$B, atom2 = kws_dat$Weaver$atomic_layer,
+                               case2 = kws_dat$Weaver$patient_index)
+  gr_w$num_cg_sig <- temp$num_sig
+  gr_temp <- gr_w
+  temp <- data.frame(layer=layer_num, datasets="Weaver",
+                     seqnames=as.character(seqnames(gr_temp)),start=start(gr_temp), width=width(gr_temp),
+                     overlapping_genes=gr_temp$overlapping_genes, gene_overlap_count=gr_temp$gene_overlap_count,
+                     num_cg_sig=gr_temp$num_cg_sig, frac_shared_sig=NA, frac_sig_same_dir=NA)
+  range_overlaps <- rbind(range_overlaps,temp)
+  
+  
+  gr_ks <- intersect(gr_k, gr_s)
+  gr_kw <- intersect(gr_k, gr_w)
+  gr_sw <- intersect(gr_s, gr_w)
+  gr_ksw <- intersect(gr_ks,gr_w)
+
+
+    
+  for(i in 1:length(gr_ks)){
+    temp <- findOverlaps(gr_ks[i],gene_ranges)
+    gr_ks$overlapping_genes[i] <-  paste(genes[temp@to,]$gene_name, collapse = "," )
+    gr_ks$gene_overlap_count[i] <-  countOverlaps(gr_ks[i], gene_ranges)
+  }
+  temp <- frac_dbeta_same_dir( gr12 = gr_ks,
+                               B1 = kws_dat$KAT6A$B, atom1 = kws_dat$KAT6A$atomic_layer,
+                               case1 = kws_dat$KAT6A$patient_index,
+                               B2 = kws_dat$Sotos$B, atom2 = kws_dat$Sotos$atomic_layer,
+                               case2 = kws_dat$Sotos$patient_index)
+  gr_ks$num_cg_sig <- temp$num_sig
+  gr_ks$frac_shared_sig <- temp$frac_shared_sig
+  gr_ks$frac_sig_same_dir <- temp$frac_sig_same_dir
+  gr_temp <- gr_ks
+  temp <- data.frame(layer=layer_num, datasets="KAT6A-Sotos",
+                     seqnames=as.character(seqnames(gr_temp)),start=start(gr_temp), width=width(gr_temp),
+                     overlapping_genes=gr_temp$overlapping_genes, gene_overlap_count=gr_temp$gene_overlap_count,
+                     num_cg_sig=gr_temp$num_cg_sig, frac_shared_sig=gr_temp$frac_shared_sig, frac_sig_same_dir=gr_temp$frac_sig_same_dir)
+  range_overlaps <- rbind(range_overlaps,temp)
+  
+  
+  for(i in 1:length(gr_kw)){
+    temp <- findOverlaps(gr_kw[i],gene_ranges)
+    gr_kw$overlapping_genes[i] <-  paste(genes[temp@to,]$gene_name, collapse = "," )
+    gr_kw$gene_overlap_count[i] <-  countOverlaps(gr_kw[i], gene_ranges)
+  }
+  temp <- frac_dbeta_same_dir( gr12 = gr_kw,
+                               B1 = kws_dat$KAT6A$B, atom1 = kws_dat$KAT6A$atomic_layer,
+                               case1 = kws_dat$KAT6A$patient_index,
+                               B2 = kws_dat$Weaver$B, atom2 = kws_dat$Weaver$atomic_layer,
+                               case2 = kws_dat$Weaver$patient_index)
+  gr_kw$num_cg_sig <- temp$num_sig
+  gr_kw$frac_shared_sig <- temp$frac_shared_sig
+  gr_kw$frac_sig_same_dir <- temp$frac_sig_same_dir
+  gr_temp <- gr_kw
+  temp <- data.frame(layer=layer_num, datasets="KAT6A-Weaver",
+                     seqnames=as.character(seqnames(gr_temp)),start=start(gr_temp), width=width(gr_temp),
+                     overlapping_genes=gr_temp$overlapping_genes, gene_overlap_count=gr_temp$gene_overlap_count,
+                     num_cg_sig=gr_temp$num_cg_sig, frac_shared_sig=gr_temp$frac_shared_sig, frac_sig_same_dir=gr_temp$frac_sig_same_dir)
+  range_overlaps <- rbind(range_overlaps,temp)
+  
+  for(i in 1:length(gr_sw)){
+    temp <- findOverlaps(gr_sw[i],gene_ranges)
+    gr_sw$overlapping_genes[i] <-  paste(genes[temp@to,]$gene_name, collapse = "," )
+    gr_sw$gene_overlap_count[i] <-  countOverlaps(gr_sw[i], gene_ranges)
+  }
+  temp <- frac_dbeta_same_dir( gr12 = gr_sw,
+                               B1 = kws_dat$Sotos$B, atom1 = kws_dat$Sotos$atomic_layer,
+                               case1 = kws_dat$Sotos$patient_index,
+                               B2 = kws_dat$Weaver$B, atom2 = kws_dat$Weaver$atomic_layer,
+                               case2 = kws_dat$Weaver$patient_index)
+  gr_sw$num_cg_sig <- temp$num_sig
+  gr_sw$frac_shared_sig <- temp$frac_shared_sig
+  gr_sw$frac_sig_same_dir <- temp$frac_sig_same_dir
+  gr_temp <- gr_sw
+  temp <- data.frame(layer=layer_num, datasets="Sotos-Weaver",
+                     seqnames=as.character(seqnames(gr_temp)),start=start(gr_temp), width=width(gr_temp),
+                     overlapping_genes=gr_temp$overlapping_genes, gene_overlap_count=gr_temp$gene_overlap_count,
+                     num_cg_sig=gr_temp$num_cg_sig, frac_shared_sig=gr_temp$frac_shared_sig, frac_sig_same_dir=gr_temp$frac_sig_same_dir)
+  range_overlaps <- rbind(range_overlaps,temp)
+  
+  ## gene set overlaps
+  
+  geneset_ks <- intersect(unique(genes[(findOverlaps(gr_k, gene_ranges)@to),]$gene_name),
+                          unique(genes[(findOverlaps(gr_s, gene_ranges)@to),]$gene_name))
+  geneset_kw <- intersect(unique(genes[(findOverlaps(gr_k, gene_ranges)@to),]$gene_name),
+                          unique(genes[(findOverlaps(gr_w, gene_ranges)@to),]$gene_name))
+  geneset_sw <- intersect(unique(genes[(findOverlaps(gr_s, gene_ranges)@to),]$gene_name),
+                          unique(genes[(findOverlaps(gr_w, gene_ranges)@to),]$gene_name))
+  geneset_ksw <-  intersect(intersect(unique(genes[(findOverlaps(gr_k, gene_ranges)@to),]$gene_name),
+                                      unique(genes[(findOverlaps(gr_s, gene_ranges)@to),]$gene_name)),
+                            unique(genes[(findOverlaps(gr_w, gene_ranges)@to),]$gene_name))
+
+  geneset_overlaps <- rbind(geneset_overlaps, cbind(layer = layer_num, overlap_between = "KAT6A & Sotos", gene = geneset_ks) )
+  geneset_overlaps <- rbind(geneset_overlaps, cbind(layer = layer_num, overlap_between = "KAT6A & Weaver", gene =  geneset_kw) )
+  geneset_overlaps <- rbind(geneset_overlaps, cbind(layer = layer_num, overlap_between = "Sotos & Weaver", gene = geneset_sw) )
+  geneset_overlaps <- rbind(geneset_overlaps, cbind(layer = layer_num, overlap_between = "KAT6A & Sotos & Weaver", gene = geneset_ksw) )
+  
+  
+
+
+  
+}
+
+write.csv(range_overlaps, file=paste(results_dir,"range_overlaps.csv",sep = ""), row.names = F )
+write.csv(geneset_overlaps, file=paste(results_dir,"geneset_overlaps.csv",sep = ""), row.names = F )
+```
+
+```{r syndrome overlaps}
+
+##calculate odds ratios
+library("epitools")
+library(ggplot2)
+library(dplyr)
+##
+
+hist(atom_KAT6A$scoring_values)
+hist(atom_Sotos$scoring_values)
+hist(atom_Weaver$scoring_values)
+
+
+cg_grs <- GRanges(seqnames = atomic_layer$chr,
+                  ranges = IRanges( start = atomic_layer$pos, width = 1))
+
+syndrome_cg_overlaps <- matrix(nrow = 7, ncol = 5)
+rownames(syndrome_cg_overlaps) <- c("cg_k","cg_s","cg_w","cg_ks","cg_kw","cg_sw","cg_ksw")
+colnames(syndrome_cg_overlaps) <- paste("L", 1:5, sep = "_")
+syndrome_cg_overlaps_expect <- syndrome_cg_overlaps
+syndrome_cg_overlaps_or <- syndrome_cg_overlaps
+syndrome_cg_overlaps_or_ci <- syndrome_cg_overlaps
+for(i in 1:5){
+  ds <- "KAT6A"
+  temp_k <- GRanges(seqnames = kws_dat[[ds]]$built_layers[[i]]$chr ,
+                  ranges = IRanges( start = kws_dat[[ds]]$built_layers[[i]]$start_pos,
+                                    end = kws_dat[[ds]]$built_layers[[i]]$stop_pos))
+  ds <- "Sotos"
+  temp_s <- GRanges(seqnames = kws_dat[[ds]]$built_layers[[i]]$chr ,
+                  ranges = IRanges( start = kws_dat[[ds]]$built_layers[[i]]$start_pos,
+                                    end = kws_dat[[ds]]$built_layers[[i]]$stop_pos))
+  ds <- "Weaver"
+  temp_w <- GRanges(seqnames = kws_dat[[ds]]$built_layers[[i]]$chr ,
+                  ranges = IRanges( start = kws_dat[[ds]]$built_layers[[i]]$start_pos,
+                                    end = kws_dat[[ds]]$built_layers[[i]]$stop_pos))
+  
+  cg_k <- unique(findOverlaps(cg_grs, temp_k)@from)
+  cg_s <- unique(findOverlaps(cg_grs, temp_s)@from)
+  cg_w <- unique(findOverlaps(cg_grs, temp_w)@from)
+  cg_ks <- intersect(cg_k,cg_s)
+  cg_kw <- intersect(cg_k,cg_w)
+  cg_sw <- intersect(cg_s,cg_w)
+  cg_ksw <- intersect(cg_k, cg_sw)
+  syndrome_cg_overlaps["cg_k",i] <- length(cg_k)
+  syndrome_cg_overlaps["cg_s",i] <- length(cg_s)
+  syndrome_cg_overlaps["cg_w",i] <- length(cg_w)
+  syndrome_cg_overlaps["cg_ks",i] <- length(cg_ks)
+  syndrome_cg_overlaps["cg_kw",i] <- length(cg_kw)
+  syndrome_cg_overlaps["cg_sw",i] <- length(cg_sw)
+  syndrome_cg_overlaps["cg_ksw",i] <- length(cg_ksw)
+  
+  
+  syndrome_cg_overlaps_expect["cg_ks",i] <- length(cg_k)*length(cg_s) / nrow(atomic_layer)
+  syndrome_cg_overlaps_expect["cg_kw",i] <- length(cg_k)*length(cg_w) / nrow(atomic_layer)
+  syndrome_cg_overlaps_expect["cg_sw",i] <- length(cg_s)*length(cg_w) / nrow(atomic_layer)
+  syndrome_cg_overlaps_expect["cg_ksw",i] <- length(cg_kw)*length(cg_s) / nrow(atomic_layer)
+  
+  syn_or <- function(cg1, cg2, nt){
+    cg12 <- length(intersect(cg1,cg2))
+    cg_n1_y2 <- length(cg2) - cg12
+    cg_n2_y1 <- length(cg1) - cg12
+    cg_n12 <- nt - cg12 - cg_n1_y2 - cg_n2_y1
+    return( (cg12 * cg_n12) / (cg_n1_y2 * cg_n2_y1))
+  }
+  syn_or_CI95 <- function(cg1, cg2, nt){
+    cg12 <- length(intersect(cg1,cg2))
+    cg_n1_y2 <- length(cg2) - cg12
+    cg_n2_y1 <- length(cg1) - cg12
+    cg_n12 <- nt - cg12 - cg_n1_y2 - cg_n2_y1
+    log_or <- log((cg12 * cg_n12) / (cg_n1_y2 * cg_n2_y1))
+    se_log_oe <-  sqrt(1/cg12 + 1/cg_n1_y2 + 1/cg_n2_y1 + 1/cg_n12)
+    left <-  log_or - 1.96*se_log_oe
+    right <-  log_or + 1.96*se_log_oe
+    return( paste(round(exp(left),3), "-",round(exp(right),3))   )
+  }
+  
+  syndrome_cg_overlaps_or["cg_ks",i] <- syn_or(cg_k,cg_s,nrow(atomic_layer))
+  syndrome_cg_overlaps_or["cg_kw",i] <- syn_or(cg_k,cg_w,nrow(atomic_layer))
+  syndrome_cg_overlaps_or["cg_sw",i] <- syn_or(cg_s,cg_w,nrow(atomic_layer))
+  syndrome_cg_overlaps_or["cg_ksw",i] <- syn_or(cg_k,cg_sw,nrow(atomic_layer))
+  
+    syndrome_cg_overlaps_or_ci["cg_ks",i] <- syn_or_CI95(cg_k,cg_s,nrow(atomic_layer))
+  syndrome_cg_overlaps_or_ci["cg_kw",i] <- syn_or_CI95(cg_k,cg_w,nrow(atomic_layer))
+  syndrome_cg_overlaps_or_ci["cg_sw",i] <- syn_or_CI95(cg_s,cg_w,nrow(atomic_layer))
+  syndrome_cg_overlaps_or_ci["cg_ksw",i] <- syn_or_CI95(cg_k,cg_sw,nrow(atomic_layer))
+}
+
+
+write.csv(syndrome_cg_overlaps,
+          file = paste(results_dir,"syndrome_cg_overlaps.csv", sep = ""))
+write.csv(syndrome_cg_overlaps_expect,
+          file = paste(results_dir,"syndrome_cg_overlaps_expect.csv", sep = ""))
+write.csv(syndrome_cg_overlaps/syndrome_cg_overlaps_expect,
+          file = paste(results_dir,"syndrome_cg_overlaps_obs_over_exp.csv", sep = ""))
+write.csv(syndrome_cg_overlaps_or,
+          file = paste(results_dir,"syndrome_cg_overlaps_or.csv", sep = ""))
+write.csv(syndrome_cg_overlaps_or_ci,
+          file = paste(results_dir,"syndrome_cg_overlaps_or_ci.csv", sep = ""))
+
+```
+
+
+

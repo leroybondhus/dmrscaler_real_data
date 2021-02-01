@@ -1,0 +1,202 @@
+---
+title: "PCDH_Cluster_Syndrome_Overlap"
+author: "Leroy_Bondhus"
+date: "January 24, 2021"
+output: html_document
+---
+
+```{r setup for KAT6A analysis}
+load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/KAT6A_GRset.funnorm.Rdata")
+load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/KAT6A_dmrscaler_built_layers.Rdata")
+load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/450k_KAT6A_dmrscaler_built_layers.Rdata")
+B<-getBeta(GRset.funnorm)
+pdat<-pData(GRset.funnorm)
+B <- B[rownames(B)[which(is.element(rownames(B), atomic_layer$names))],]
+patient_index<-grep("KAT",pdat$Sample_Name)
+control_index<-grep("CONTROL", pdat$Sample_Name)                      
+head(atomic_layer)
+bd <- rowMeans2(B[,patient_index]) - rowMeans2(B[,control_index])
+beta_deltas <- cbind(atomic_layer, data.frame("syndrome"=rep("KAT6A", nrow(atomic_layer)), "delta_beta"= bd))
+
+
+
+load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Weaver_GRset.funnorm.Rdata")
+load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Weaver_dmrscaler_built_layers.Rdata")
+load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/850k_Weaver_dmrscaler_built_layers.Rdata")
+B<-getBeta(GRset.funnorm)
+pdat<-pData(GRset.funnorm)
+B <- B[rownames(B)[which(is.element(rownames(B), atomic_layer$names))],]
+control_index <- grep("Control",pdat$Sample_Group)
+patient_index <- grep("Weaver", pdat$Sample_Group)
+head(atomic_layer)
+bd <- rowMeans2(B[,patient_index]) - rowMeans2(B[,control_index])
+temp <- cbind(atomic_layer, data.frame("syndrome"=rep("Weaver", nrow(atomic_layer)), "delta_beta"= bd))
+beta_deltas <- rbind(beta_deltas, temp)
+
+
+load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sotos_GRset.funnorm.Rdata")
+load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sotos_dmrscaler_built_layers.Rdata")
+load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/850k_Sotos_dmrscaler_built_layers.Rdata")
+B<-getBeta(GRset.funnorm)
+pdat<-pData(GRset.funnorm)
+B <- B[rownames(B)[which(is.element(rownames(B), atomic_layer$names))],]
+control_index <- grep("Control",pdat$Sample_Group)
+patient_index <- grep("Sotos", pdat$Sample_Group)
+head(atomic_layer)
+bd <- rowMeans2(B[,patient_index]) - rowMeans2(B[,control_index])
+temp <- cbind(atomic_layer, data.frame("syndrome"=rep("Sotos", nrow(atomic_layer)), "delta_beta"= bd))
+beta_deltas <- rbind(beta_deltas, temp)
+
+```
+
+```{r Gene Annotations}
+
+gtf_df <- rtracklayer::import("/home/lbondhus/Desktop/STABLE_DATA/HUMAN_GENOME/Homo_sapiens.GRCh37.87.chr.gtf")
+gtf_df <- as.data.frame(gtf_df)
+gtf_df$seqnames<-paste("chr", gtf_df$seqnames, sep = "")
+
+genes<-as.data.frame(cbind(chromosome=gtf_df$seqnames, start=gtf_df$start, end=gtf_df$end ))
+genes<-cbind(genes, width=as.numeric(as.character(gtf_df$width)), strand=gtf_df$strand, feature=gtf_df$type, gene=gtf_df$gene_id, exon=gtf_df$exon_id, transcript=gtf_df$transcript_id, symbol=gtf_df$gene_name)
+
+genes$start<-as.numeric(as.character(genes$start))
+genes$end<-as.numeric(as.character(genes$end))
+
+#genes <- gtf_df[which(gtf_df$gene_biotype =="protein_coding" ),]
+#genes <- genes[which(genes$gene_source=="ensembl_havana"),]
+#genes <- genes[which(genes$type=="gene" ),]
+
+genes <- genes[,which(colSums(is.na(genes)) == 0)]
+gene_ranges <- GRanges(seqnames = genes$seqnames, IRanges(start = genes$start, width = genes$width))
+```
+
+
+```{r}
+## is CG j in a DMR a level i
+locs$dmr_layers <- 0
+pos_gr <- GRanges(seqnames = locs$chr, ranges = IRanges(start = locs$pos, width = 1))
+for(i in 1:length(built_layers)){
+    bl_gr <- GRanges(seqnames = built_layers[[i]]$chr, ranges = IRanges(start = built_layers[[i]]$start_pos, end = built_layers[[i]]$stop_pos))
+    locs$dmr_layers <- locs$dmr_layers + GenomicRanges::countOverlaps(pos_gr, bl_gr)
+    
+}
+```
+
+
+
+```{r}
+library(Gviz)
+#PCDH clusters#chr5:140,000,000-141,320,000    
+chr <- "chr5"
+start <- 140700000
+stop <- 140950000
+
+chr <- "chr8"
+start <- 11520000
+stop <- 11626000
+
+chr <- "chr11"
+start <- 2140000
+stop <-  2240000
+
+#chr11
+#2181039
+#4338
+
+
+### HOX
+HOX <- data.frame(cluster=c("A","B","C","D", "N"), 
+          chr=c("chr7","chr17","chr12", "chr2", "chr5"),
+          start_pos=c(27.12e6, 46.60e6, 54.3e6, 176.9e6, 140.11e6),
+          stop_pos=c(27.3e6, 46.72e6, 54.5e6, 177.07e6, 140.83e6))
+i=3
+
+chr <- as.character(HOX$chr[i])
+start <- HOX$start_pos[i]
+stop <- HOX$stop_pos[i]
+
+
+genes_exons<-genes[which((genes$chromosome==as.character(chr)) & (genes$start>=start) & (genes$end<=stop)),]
+## PCDH organization
+#genes_exons<- genes_exons[c(grep("PCDH",genes_exons$symbol),grep("HOX",genes_exons$symbol)),]
+  ##
+#genes_exons<- genes_exons[c(grep("INS",genes_exons$symbol),
+#                            grep("IGF",genes_exons$symbol),
+#                            grep("TH",genes_exons$symbol)),]
+genes_exons<-droplevels(genes_exons)
+genes_exons<-genes_exons[complete.cases(genes_exons),]
+
+cex_size=7
+cex_small=5
+gen<-"hg19"
+
+
+which_k<-which(beta_deltas$chr==chr & beta_deltas$pos>=start & beta_deltas$pos<=stop & beta_deltas$syndrome=="KAT6A" )
+which_s<-which(beta_deltas$chr==chr & beta_deltas$pos>=start & beta_deltas$pos<=stop & beta_deltas$syndrome=="Sotos" )
+which_w<-which(beta_deltas$chr==chr & beta_deltas$pos>=start & beta_deltas$pos<=stop & beta_deltas$syndrome=="Weaver" )
+
+
+irange_k<-IRanges(start=beta_deltas[which_k,"pos"], width=1)
+grange_k<-GRanges(seqnames=chr, ranges =  ranges(irange_k), mcols = beta_deltas[which_k,])
+signif_k <- DataTrack(range=grange_k, data="mcols.scoring_values",  genome=gen, group ="signif", name="KAT6A", type=c("p", "g"), col="black", fontcolor.title="grey20", col.axis="black", fontcolor.legend="grey20", ylim=c(0,max(atom_KAT6A$scoring_values)))
+deltabeta_k <-DataTrack(range=grange_k, data="mcols.delta_beta",  genome=gen, group ="delta", name="KAT6A", col="black", type=c("a", "g"), fontcolor.title="grey20", col.axis="black", fontcolor.legend="grey20", legend = TRUE, baseline=0, col.baseline="black", lty.baseline=3, ylim=c(-0.3,0.3))
+displayPars(deltabeta_k) <- list( cex.legend=1, cex.axis=1, cex.title=1 , lwd.grid=1, col.grid="grey80",v=0,h=0)
+
+
+irange_s<-IRanges(start=beta_deltas[which_s,"pos"], width=1)
+grange_s<-GRanges(seqnames=chr, ranges =  ranges(irange_s), mcols = beta_deltas[which_s,])
+signif_s <- DataTrack(range=grange_s, data="mcols.scoring_values",  genome=gen, group ="signif", name="Sotos", col.histogram="black", type=c("p", "g"), col="black", fontcolor.title="grey20", col.axis="black", fontcolor.legend="grey20", ylim=c(0,max(atom_Sotos$scoring_values)))
+deltabeta_s <-DataTrack(range=grange_s, data="mcols.delta_beta",  genome=gen, group ="delta", name="Sotos", col="black", type=c("a", "g"), fontcolor.title="grey20", col.axis="black", fontcolor.legend="grey20", legend = TRUE, baseline=0, col.baseline="black", lty.baseline=3, ylim=c(-0.3,0.3))
+displayPars(deltabeta_s) <- list( cex.legend=1, cex.axis=1, cex.title=1 , lwd.grid=1, col.grid="grey80",v=0,h=0)
+
+
+irange_w<-IRanges(start=beta_deltas[which_w,"pos"], width=1)
+grange_w<-GRanges(seqnames=chr, ranges =  ranges(irange_w), mcols = beta_deltas[which_w,])
+signif_w <- DataTrack(range=grange_w, data="mcols.scoring_values",  genome=gen, group ="signif", name="Weaver", col.histogram="black", type=c("p", "g"), col="black", fontcolor.title="grey20", col.axis="black", fontcolor.legend="grey20", ylim=c(0,max(atom_Weaver$scoring_values)))
+deltabeta_w <-DataTrack(range=grange_w, data="mcols.delta_beta",  genome=gen, group ="delta", name="Weaver", col="black", type=c("a", "g"), fontcolor.title="grey20", col.axis="black", fontcolor.legend="grey20", legend = TRUE, baseline=0, col.baseline="black", lty.baseline=3, ylim=c(-0.3,0.3))
+displayPars(deltabeta_w) <- list( cex.legend=1, cex.axis=1, cex.title=1 , lwd.grid=1, col.grid="grey80",v=0,h=0)
+
+grtrack <- GeneRegionTrack(genes_exons, genome=gen, chromosome=chr, name="Gene Model", transcriptAnnotation="gene_name",collapseTranscripts = "meta")
+displayPars(grtrack) <- list( background.panel="white", col="grey20", fontsize=25, fontsize.group=25, fill = "grey50", lwd=1, fontcolor.group="grey20", fontcolor.title="grey20", stackHeight = 0.90, shape="box")
+  if( length(which)==0 ){
+    grtrack <- itrack
+  }
+  
+layer_track <- list()
+layer_track[["KAT6A"]] <- AnnotationTrack( range = gr_k, name = "KAT6A")
+displayPars(layer_track[["KAT6A"]]) <- list(cex.legend=0.7, cex.axis=0.7, cex.title=0.7, rotation.title=0, col="grey20", fill="grey70", fontcolor.title="grey20", stackHeight = 1, shape="box")
+layer_track[["Sotos"]] <- AnnotationTrack( range = gr_s, name = "Sotos")
+displayPars(layer_track[["Sotos"]]) <- list(cex.legend=0.7, cex.axis=0.7, cex.title=0.7, rotation.title=0, col="grey20", fill="grey70", fontcolor.title="grey20", stackHeight = 1, shape="box")
+layer_track[["Weaver"]] <- AnnotationTrack( range = gr_w, name = "Weaver")
+displayPars(layer_track[["Weaver"]]) <- list(cex.legend=0.7, cex.axis=0.7, cex.title=0.7, rotation.title=0, col="grey20", fill="grey70", fontcolor.title="grey20", stackHeight = 1, shape="box")
+
+
+
+gtrack<-GenomeAxisTrack()
+displayPars(gtrack) <- list(cex=1, cex.id=1, fontcolor="grey20", col="grey20")
+itrack<-IdeogramTrack(genome=gen,chromosome = chr)
+displayPars(itrack) <- list(cex=1,cex.bands=1, fontcolor="grey20")
+
+  
+  Region_name <- paste(chr, start, stop, sep="_")
+  #filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/WEAVER/3_", Region_name , ".png", sep = "")
+ # filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/KAT6A/", "HOX" , HOX$cluster[i], ".png", sep = "")
+   filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/PCDHG_all_syndrome_overlap.png")
+    png(file=filename, width = 9, height = 12, units = "in", res = 400) ####### start writing 
+  
+  #plotTracks(list(itrack, gtrack, raw_beta_track, norm_beta_track, manhattan_track, grtrack,
+  plotTracks(list(itrack, gtrack, grtrack,
+                  signif_k, layer_track[["KAT6A"]],  deltabeta_k, 
+                  signif_s, layer_track[["Sotos"]], deltabeta_s,    
+                  signif_w, layer_track[["Weaver"]], deltabeta_w   
+  #                layer_track[[4]],
+ #                 layer_track[[5]]
+                  ),
+             from = start-1, to=stop+1, sizes =c(1,1,4,1,0.5,2,1,0.5,2,1,0.5,2),
+            background.title = "white"
+             )
+  #  plotTracks(list(itrack, gtrack, raw_beta_track, norm_beta_track, manhattan_track, grtrack),
+  #             from = start-1, to=stop+1, sizes =c(0.5,0.5,1,4,2,2) )
+ dev.off() ####  stop writing
+  
+
+```
