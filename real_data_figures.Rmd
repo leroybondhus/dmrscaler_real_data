@@ -689,6 +689,8 @@ dmr_ranges[which(countOverlaps(dmr_ranges, gene_ranges) > 5)]
 temp <- findOverlaps(dmr_ranges[which(countOverlaps(dmr_ranges, gene_ranges) > 5)], gene_ranges)
 temp <- genes[temp@to,]
 ```
+
+
 ```{r funcs for kws overlap analysis}
 
 frac_dbeta_same_dir <- function(gr12, B1, atom1, case1, B2, case2, atom2){
@@ -722,7 +724,21 @@ frac_dbeta_same_dir <- function(gr12, B1, atom1, case1, B2, case2, atom2){
       if(is.na(frac_sig_same_dir[i])){frac_sig_same_dir[i] = 0}
     }
     return( data.frame(num_sig = num_sig, frac_shared_sig = frac_shared_sig, frac_sig_same_dir = frac_sig_same_dir ))
+}
+
+frac_A_in_B <- function(gr1,gr2){
+  which <- findOverlaps(gr1,gr2)@from
+  frac_a_in_b <- numeric(length=length(gr1))
+  for(i in 1:length(gr1)){
+    if(is.element(i,which)){
+      frac_a_in_b[i] <- sum(width(intersect(gr1[i],gr2)))/width(gr1[i])
+    }
+    else{
+      frac_a_in_b[i] <- 0
+    }
   }
+  return(frac_a_in_b)
+}
 ```
 
 ```{r kat6a-weaver-sotos overlap analysis}
@@ -747,9 +763,19 @@ geneset_overlaps = data.frame(layer=numeric(), overlap_between = character(), ge
 range_overlaps <- data.frame(layer=numeric(), datasets=character(),
                              seqnames = character(), start = numeric(), width = numeric(),
                              overlapping_genes = character(), gene_overlap_count = numeric(),
-                             num_cg_sig = numeric(), frac_shared_sig = numeric(), frac_sig_same_dir = numeric())  
-
-for(layer_num in 1:length(kws_dat$KAT6A$built_layers)){  
+                             num_cg_sig = numeric(), frac_shared_sig = numeric(), frac_sig_same_dir = numeric(),
+                             frac_shared_kat6a = numeric(), frac_shared_sotos = numeric(),frac_shared_weaver = numeric() )  
+for(layer_num in 1:length(kws_dat$KAT6A$built_layers)){
+test <- foreach(layer_num=1:length(kws_dat$KAT6A$built_layers), .combine=rbind) %dopar% {
+  geneset_overlaps = data.frame(layer=numeric(), overlap_between = character(), gene = character())
+  range_overlaps <- data.frame(layer=numeric(), datasets=character(),
+                             seqnames = character(), start = numeric(), width = numeric(),
+                             overlapping_genes = character(), gene_overlap_count = numeric(),
+                             num_cg_sig = numeric(), frac_shared_sig = numeric(), frac_sig_same_dir = numeric(),
+                             frac_shared_kat6a = numeric(), frac_shared_sotos = numeric(),frac_shared_weaver = numeric() )  
+  ## foreach
+  
+  print(layer_num)
   gr_k <- GRanges(seqnames = kws_dat$KAT6A$built_layers[[layer_num]]$chr,
                      IRanges(start = kws_dat$KAT6A$built_layers[[layer_num]]$start_pos, 
                              end = kws_dat$KAT6A$built_layers[[layer_num]]$stop_pos))
@@ -784,7 +810,11 @@ for(layer_num in 1:length(kws_dat$KAT6A$built_layers)){
   temp <- data.frame(layer=layer_num, datasets="KAT6A",
                      seqnames=as.character(seqnames(gr_temp)),start=start(gr_temp), width=width(gr_temp),
                      overlapping_genes=gr_temp$overlapping_genes, gene_overlap_count=gr_temp$gene_overlap_count,
-                     num_cg_sig=gr_temp$num_cg_sig, frac_shared_sig=NA, frac_sig_same_dir=NA)
+                     num_cg_sig=gr_temp$num_cg_sig, frac_shared_sig=NA, frac_sig_same_dir=NA,
+                     frac_shared_kat6a = frac_A_in_B(gr_temp,gr_k),
+                     frac_shared_sotos = frac_A_in_B(gr_temp,gr_s),
+                     frac_shared_weaver = frac_A_in_B(gr_temp,gr_w)
+                     )
   range_overlaps <- rbind(range_overlaps,temp)
   
   temp <- frac_dbeta_same_dir( gr12 = gr_s,
@@ -797,7 +827,10 @@ for(layer_num in 1:length(kws_dat$KAT6A$built_layers)){
   temp <- data.frame(layer=layer_num, datasets="Sotos",
                      seqnames=as.character(seqnames(gr_temp)),start=start(gr_temp), width=width(gr_temp),
                      overlapping_genes=gr_temp$overlapping_genes, gene_overlap_count=gr_temp$gene_overlap_count,
-                     num_cg_sig=gr_temp$num_cg_sig, frac_shared_sig=NA, frac_sig_same_dir=NA)
+                     num_cg_sig=gr_temp$num_cg_sig, frac_shared_sig=NA, frac_sig_same_dir=NA,
+                     frac_shared_kat6a = frac_A_in_B(gr_temp,gr_k),
+                     frac_shared_sotos = frac_A_in_B(gr_temp,gr_s),
+                     frac_shared_weaver = frac_A_in_B(gr_temp,gr_w))
   range_overlaps <- rbind(range_overlaps,temp)
   
   temp <- frac_dbeta_same_dir( gr12 = gr_w,
@@ -810,7 +843,10 @@ for(layer_num in 1:length(kws_dat$KAT6A$built_layers)){
   temp <- data.frame(layer=layer_num, datasets="Weaver",
                      seqnames=as.character(seqnames(gr_temp)),start=start(gr_temp), width=width(gr_temp),
                      overlapping_genes=gr_temp$overlapping_genes, gene_overlap_count=gr_temp$gene_overlap_count,
-                     num_cg_sig=gr_temp$num_cg_sig, frac_shared_sig=NA, frac_sig_same_dir=NA)
+                     num_cg_sig=gr_temp$num_cg_sig, frac_shared_sig=NA, frac_sig_same_dir=NA,
+                     frac_shared_kat6a = frac_A_in_B(gr_temp,gr_k),
+                     frac_shared_sotos = frac_A_in_B(gr_temp,gr_s),
+                     frac_shared_weaver = frac_A_in_B(gr_temp,gr_w))
   range_overlaps <- rbind(range_overlaps,temp)
   
   
@@ -838,7 +874,10 @@ for(layer_num in 1:length(kws_dat$KAT6A$built_layers)){
   temp <- data.frame(layer=layer_num, datasets="KAT6A-Sotos",
                      seqnames=as.character(seqnames(gr_temp)),start=start(gr_temp), width=width(gr_temp),
                      overlapping_genes=gr_temp$overlapping_genes, gene_overlap_count=gr_temp$gene_overlap_count,
-                     num_cg_sig=gr_temp$num_cg_sig, frac_shared_sig=gr_temp$frac_shared_sig, frac_sig_same_dir=gr_temp$frac_sig_same_dir)
+                     num_cg_sig=gr_temp$num_cg_sig, frac_shared_sig=gr_temp$frac_shared_sig, frac_sig_same_dir=gr_temp$frac_sig_same_dir,
+                     frac_shared_kat6a = frac_A_in_B(gr_temp,gr_k),
+                     frac_shared_sotos = frac_A_in_B(gr_temp,gr_s),
+                     frac_shared_weaver = frac_A_in_B(gr_temp,gr_w))
   range_overlaps <- rbind(range_overlaps,temp)
   
   
@@ -859,7 +898,10 @@ for(layer_num in 1:length(kws_dat$KAT6A$built_layers)){
   temp <- data.frame(layer=layer_num, datasets="KAT6A-Weaver",
                      seqnames=as.character(seqnames(gr_temp)),start=start(gr_temp), width=width(gr_temp),
                      overlapping_genes=gr_temp$overlapping_genes, gene_overlap_count=gr_temp$gene_overlap_count,
-                     num_cg_sig=gr_temp$num_cg_sig, frac_shared_sig=gr_temp$frac_shared_sig, frac_sig_same_dir=gr_temp$frac_sig_same_dir)
+                     num_cg_sig=gr_temp$num_cg_sig, frac_shared_sig=gr_temp$frac_shared_sig, frac_sig_same_dir=gr_temp$frac_sig_same_dir,
+                     frac_shared_kat6a = frac_A_in_B(gr_temp,gr_k),
+                     frac_shared_sotos = frac_A_in_B(gr_temp,gr_s),
+                     frac_shared_weaver = frac_A_in_B(gr_temp,gr_w))
   range_overlaps <- rbind(range_overlaps,temp)
   
   for(i in 1:length(gr_sw)){
@@ -879,7 +921,10 @@ for(layer_num in 1:length(kws_dat$KAT6A$built_layers)){
   temp <- data.frame(layer=layer_num, datasets="Sotos-Weaver",
                      seqnames=as.character(seqnames(gr_temp)),start=start(gr_temp), width=width(gr_temp),
                      overlapping_genes=gr_temp$overlapping_genes, gene_overlap_count=gr_temp$gene_overlap_count,
-                     num_cg_sig=gr_temp$num_cg_sig, frac_shared_sig=gr_temp$frac_shared_sig, frac_sig_same_dir=gr_temp$frac_sig_same_dir)
+                     num_cg_sig=gr_temp$num_cg_sig, frac_shared_sig=gr_temp$frac_shared_sig, frac_sig_same_dir=gr_temp$frac_sig_same_dir,
+                     frac_shared_kat6a = frac_A_in_B(gr_temp,gr_k),
+                     frac_shared_sotos = frac_A_in_B(gr_temp,gr_s),
+                     frac_shared_weaver = frac_A_in_B(gr_temp,gr_w))
   range_overlaps <- rbind(range_overlaps,temp)
   
   ## gene set overlaps
@@ -902,11 +947,11 @@ for(layer_num in 1:length(kws_dat$KAT6A$built_layers)){
   
 
 
-  
+  range_overlaps
 }
 
-write.csv(range_overlaps, file=paste(results_dir,"range_overlaps.csv",sep = ""), row.names = F )
-write.csv(geneset_overlaps, file=paste(results_dir,"geneset_overlaps.csv",sep = ""), row.names = F )
+write.csv(test, file=paste(results_dir,"range_overlaps2.csv",sep = ""), row.names = F )
+write.csv(geneset_overlaps, file=paste(results_dir,"geneset_overlaps2.csv",sep = ""), row.names = F )
 ```
 
 ```{r syndrome overlaps}
@@ -971,7 +1016,7 @@ for(i in 1:5){
     cg_n1_y2 <- length(cg2) - cg12
     cg_n2_y1 <- length(cg1) - cg12
     cg_n12 <- nt - cg12 - cg_n1_y2 - cg_n2_y1
-    return( (cg12 * cg_n12) / (cg_n1_y2 * cg_n2_y1))
+    return( round((cg12 * cg_n12) / (cg_n1_y2 * cg_n2_y1),2))
   }
   syn_or_CI95 <- function(cg1, cg2, nt){
     cg12 <- length(intersect(cg1,cg2))
@@ -982,7 +1027,7 @@ for(i in 1:5){
     se_log_oe <-  sqrt(1/cg12 + 1/cg_n1_y2 + 1/cg_n2_y1 + 1/cg_n12)
     left <-  log_or - 1.96*se_log_oe
     right <-  log_or + 1.96*se_log_oe
-    return( paste(round(exp(left),3), "-",round(exp(right),3))   )
+    return( paste(round(exp(left),2), "-",round(exp(right),2),sep = "")   )
   }
   
   syndrome_cg_overlaps_or["cg_ks",i] <- syn_or(cg_k,cg_s,nrow(atomic_layer))
@@ -1007,6 +1052,15 @@ write.csv(syndrome_cg_overlaps_or,
           file = paste(results_dir,"syndrome_cg_overlaps_or.csv", sep = ""))
 write.csv(syndrome_cg_overlaps_or_ci,
           file = paste(results_dir,"syndrome_cg_overlaps_or_ci.csv", sep = ""))
+
+
+syndrome_cg_overlaps_or_ci
+or_w_ci <- matrix(paste(syndrome_cg_overlaps_or, " (", syndrome_cg_overlaps_or_ci, ")", sep = ""), nrow=7,ncol=5)
+#or_w_ci <- matrix(nrow = 7, ncol = 5)
+rownames(or_w_ci) <- c("cg_k","cg_s","cg_w","cg_ks","cg_kw","cg_sw","cg_ksw")
+colnames(or_w_ci) <- paste("L", 1:5, sep = "_")
+write.csv(or_w_ci,
+          file = paste(results_dir,"syndrome_cg_overlaps_or_w_ci.csv", sep = ""))
 
 ```
 

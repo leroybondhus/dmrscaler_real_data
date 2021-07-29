@@ -49,6 +49,10 @@ locs <- getLocations(GRset.funnorm)
 locs <- data.frame("names"=locs@ranges@NAMES, "pos"=locs@ranges@start, "chr" = rep(locs@seqnames@values, locs@seqnames@lengths))
 B <- getBeta(GRset.funnorm)
 
+## for direct comparison with KAT6A
+which <- which(is.element(as.character(kws_dat$Weaver$locs$names), as.character(kws_dat$KAT6A$locs$names)))
+locs <- locs[which,]
+B <- B[which, ]
 ```
 
 ```{r setup KAT6A data}
@@ -60,6 +64,11 @@ cases <- grep("Patient", pdat$Sample_Group)
 locs <- getLocations(GRset.funnorm)
 locs <- data.frame("names"=locs@ranges@NAMES, "pos"=locs@ranges@start, "chr" = rep(locs@seqnames@values, locs@seqnames@lengths))
 B <- getBeta(GRset.funnorm)
+
+## for direct comparison with Weaver and Sotos
+which <- which(is.element(as.character(kws_dat$KAT6A$locs$names), as.character(kws_dat$Weaver$locs$names)))
+locs <- locs[which,]
+B <- B[which, ]
 ```
 
 
@@ -72,6 +81,10 @@ locs <- getLocations(GRset.funnorm)
 locs <- data.frame("names"=locs@ranges@NAMES, "pos"=locs@ranges@start, "chr" = rep(locs@seqnames@values, locs@seqnames@lengths))
 B <- getBeta(GRset.funnorm)
 
+## for direct comparison with KAT6A
+which <- which(is.element(as.character(kws_dat$Weaver$locs$names), as.character(kws_dat$KAT6A$locs$names)))
+locs <- locs[which,]
+B <- B[which, ]
 ```
 
 
@@ -168,15 +181,15 @@ B <- getBeta(GRset.funnorm)
        # print("done with one")
       }
 
-
+save(atomic_layer,built_layers, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/850k_Weaver_dmrscaler_built_layers.Rdata")
 
 ```
 
 
 ```{r Save Data Objects}
-#save(atomic_layer,built_layers, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/KAT6A_dmrscaler_built_layers.Rdata")
-#save(atomic_layer,built_layers, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Weaver_dmrscaler_built_layers.Rdata")
-save(atomic_layer,built_layers, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sotos_dmrscaler_built_layers.Rdata")
+#save(atomic_layer,built_layers, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/450k_KAT6A_dmrscaler_built_layers.Rdata")
+#save(atomic_layer,built_layers, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/850k_Weaver_dmrscaler_built_layers.Rdata")
+#save(atomic_layer,built_layers, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/850k_Sotos_dmrscaler_built_layers.Rdata")
 
 ```
 

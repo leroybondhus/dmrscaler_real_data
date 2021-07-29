@@ -55,7 +55,7 @@ gtf_df <- rtracklayer::import("/home/lbondhus/Desktop/STABLE_DATA/HUMAN_GENOME/H
 gtf_df <- as.data.frame(gtf_df)
 gtf_df$seqnames<-paste("chr", gtf_df$seqnames, sep = "")
 
-genes<-as.data.frame(cbind(chromosome=gtf_df$seqnames, start=gtf_df$start, end=gtf_df$end ))
+genes<-as.data.frame(cbind(seqnames=gtf_df$seqnames, start=gtf_df$start, end=gtf_df$end ))
 genes<-cbind(genes, width=as.numeric(as.character(gtf_df$width)), strand=gtf_df$strand, feature=gtf_df$type, gene=gtf_df$gene_id, exon=gtf_df$exon_id, transcript=gtf_df$transcript_id, symbol=gtf_df$gene_name)
 
 genes$start<-as.numeric(as.character(genes$start))
@@ -90,6 +90,10 @@ chr <- "chr5"
 start <- 140700000
 stop <- 140950000
 
+chr <- "chr5"
+start <- 140700000
+stop <- 140950000
+
 chr <- "chr8"
 start <- 11520000
 stop <- 11626000
@@ -108,14 +112,14 @@ HOX <- data.frame(cluster=c("A","B","C","D", "N"),
           chr=c("chr7","chr17","chr12", "chr2", "chr5"),
           start_pos=c(27.12e6, 46.60e6, 54.3e6, 176.9e6, 140.11e6),
           stop_pos=c(27.3e6, 46.72e6, 54.5e6, 177.07e6, 140.83e6))
-i=3
+i=2
 
 chr <- as.character(HOX$chr[i])
 start <- HOX$start_pos[i]
 stop <- HOX$stop_pos[i]
 
 
-genes_exons<-genes[which((genes$chromosome==as.character(chr)) & (genes$start>=start) & (genes$end<=stop)),]
+genes_exons<-genes[which((genes$seqnames==as.character(chr)) & (genes$start>=start) & (genes$end<=stop)),]
 ## PCDH organization
 #genes_exons<- genes_exons[c(grep("PCDH",genes_exons$symbol),grep("HOX",genes_exons$symbol)),]
   ##
