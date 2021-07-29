@@ -158,11 +158,11 @@ B<-as.matrix(B)
       }
 
 
-save(built_layers, file="/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sex_8M_8F_built_layers.Rdata")              
-save(atomic_layer, file="/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sex_8M_8F_atomic_layers.Rdata")
+save(built_layers, file=paste(intermediate_data_dir,"/Sex_8M_8F_built_layers.Rdata",sep=""))              
+save(atomic_layer, file=paste(intermediate_data_dir,"/Sex_8M_8F_atomic_layers.Rdata",sep=""))
 
-load(file="/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sex_8M_8F_built_layers.Rdata")              
-load(file="/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sex_8M_8F_atomic_layers.Rdata")
+load(file=paste(intermediate_data_dir,"/Sex_8M_8F_built_layers.Rdata",sep=""))              
+load(file=paste(intermediate_data_dir,"/Sex_8M_8F_atomic_layers.Rdata",sep=""))
 
 for(i in 1:length(built_layers)){
   write.csv(built_layers[[i]], paste(results_dir,"/dmrscaler_layer",i,".csv", sep = ""))
@@ -840,8 +840,8 @@ library(data.tree)
 dtree <- as.Node(x_dmr_tree_clean)
 
 jsonData <- toJSON(x_dmr_tree_clean)
-write(jsonData, "/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/sex_dmr_tree_output.json")
-#write(jsonData, "/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/sex_dmr_tree_output_full.json")
+write(jsonData, paste(intermediate_data_dir,"/sex_dmr_tree_output.json",sep=""))
+#write(jsonData, intermediate_data_dir,"/sex_dmr_tree_output_full.json",sep="))
 
 library("webshot") ###  library to fix an obnoxious problem
 
