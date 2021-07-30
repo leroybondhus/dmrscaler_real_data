@@ -157,27 +157,23 @@ dmrcate_dmrs_1M  <- extractRanges(dmrcate_dmrs_1M , genome = "hg19")
 write.csv(dmrcate_dmrs_1M, paste(results_dir,"dmrcate_dmrs_1M.csv", sep = ""))
 
 
-
               ## combp  ##
   ## Set up bed file
 combp_input_bed <- data.frame(chrom=locs$chr,start=locs$pos,end=locs$pos+1,pval=10^-mwr$p_val)
-combp_input_bed <- combp_input_bed[order(combp_input_bed$chrom),]
+combp_input_bed <- combp_input_bed[order(as.character(combp_input_bed$chrom)),]
 colnames(combp_input_bed)[1] <- "#chrom"
 data.table::fwrite(combp_input_bed, file = "./intermediate_data2/combp_temp_input.bed", row.names = F,col.names = T, sep = "\t") 
 ## Pass bed file into comb-p
 
-system("comb-p pipeline -c 4 --dist 1000000 --step 5000 --seed 1e-3 -p ./intermediate_data2/test --region-filter-p 0.1 ./intermediate_data_2/combp_temp_input.bed ")
-
+system("comb-p pipeline -c 4 --dist 1000 --step 100 --seed 1e-3 -p ./intermediate_data2/test --region-filter-p 0.1 ./intermediate_data2/combp_temp_input.bed ")
 ## Parse comb-p resuults into the CALLED_TP_FP and the MAPPING VALUES tables
-combp_results_1M_5k <- data.table::fread("./intermediate_data_2/test.regions-t.bed")
-write.csv(combp_results_1M_5k, paste(results_dir,"combp_results_1M_5k.csv", sep = ""))
-
-
-system("comb-p pipeline -c 4 --dist 1000 --step 100 --seed 1e-3 -p ./intermediate_data2/test --region-filter-p 0.1 ./intermediate_data_2/combp_temp_input.bed ")
-
-## Parse comb-p resuults into the CALLED_TP_FP and the MAPPING VALUES tables
-combp_results_1k_100 <- data.table::fread("./intermediate_data_2/test.regions-t.bed")
+combp_results_1k_100 <- data.table::fread("./intermediate_data2/test.regions-t.bed")
 write.csv(combp_results_1k_100, paste(results_dir,"combp_results_1k_100.csv", sep = ""))
+
+system("comb-p pipeline -c 4 --dist 1000000 --step 5000 --seed 1e-3 -p ./intermediate_data2/test --region-filter-p 0.1 ./intermediate_data2/combp_temp_input.bed ")
+## Parse comb-p resuults into the CALLED_TP_FP and the MAPPING VALUES tables
+combp_results_1M_5k <- data.table::fread("./intermediate_data2/test.regions-t.bed")
+write.csv(combp_results_1M_5k, paste(results_dir,"combp_results_1M_5k.csv", sep = ""))
 
 
 save.image()
