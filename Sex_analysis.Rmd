@@ -67,99 +67,50 @@ cdf <- as.data.frame(cP)
 g1<-pdat$Basename[which(trimws(pdat$Sex)=="female")][1:8]
 g2<-pdat$Basename[which(trimws(pdat$Sex)=="male")][1:8]
 B<-as.matrix(B)
-              ############################     run everything         #########################
-              num_perm <- 40
-              clt_reps <- 5e4
-              
-              rim <- dmrscaler::generate_rand_index_matrix(num_controls = length(g1),
-                                                           num_cases = length(g2),
-                                                           num_permutations = num_perm)
-              mrp <- dmrscaler::run_MWW_rand_permutation(index_matrix = rim, 
-                                                         Beta = B,
-                                                         num_permutations = num_perm)
-              mrp <- -log10(mrp)
-              mwr <- dmrscaler::run_MWW(control_indices = which(is.element(colnames(B),g1)) ,
-                                        case_indices = which(is.element(colnames(B),g2)),
-                                        Beta = B)
-              mwr <- -log10(mwr)
-              fdt <- dmrscaler::write_FDR_table(real_table = mwr,
-                                                rand_table = mrp)
-              
-              fdrscaler <- dmrscaler::get_FDR_scalar(MWW_FDR_table = fdt,
-                                                     MWW_FDR_threshold = 0.1)
-              if(is.na(fdrscaler)){fdrscaler <- 1}
-              cltable <- dmrscaler::write_CLT_lookup_table(num_reps = clt_reps ,
-                                                           data_to_sample = mwr$p_val,
-                                                           FDR_scaler = fdrscaler,
-                                                           clt_numCGs = c(2, 5, 10, 25, 50))
-              ## data <-  names, chr, pos,  scoring_value (-log10pval)
-            #  data <- controlCGlocs
-              data <- locs[,1:3]
-              data$chr <- as.factor(data$chr)
-              colnames(data)<-c("names","pos","chr")
-              data$scoring_values <- mwr$p_val
-            #  data$chr <- droplevels(data$chr)
-              layer_sizes <- c(2,4,8,16,32,64)
-              layers<-list()
-              for(i in 1:length(layer_sizes)){
-                print(paste("layer", i, sep="_"))
-                nn_step_fraction = 2 
-                nn_step_size <- floor(layer_sizes[i] / nn_step_fraction)
-                nn <- dmrscaler::n_nearest_window_scoring_func(indat = data, n_nearest = layer_sizes[i], step_size = nn_step_size, FDR = fdrscaler)
-                signn <- dmrscaler::determine_significant_windows(window_results=nn, indat=data, quants=cltable , quants_significance_cutoff = "0.9999" )
-                signn <- dmrscaler::add_significance(three_window_list =  signn, lookup_table = cltable)
-                
-                ## multiple chromosomes each a list, coerce to single dataframe
-                signn <- bind_rows(signn)
-                ## 
-                
-                layers[[i]]<-signn
-              }
-              
-              layers_TEMP_BACKUP <- layers
-              layers<-layers_TEMP_BACKUP
-              
-              names(layers)<-paste("layer", layer_sizes, sep="_")
-              
-              # for(i in 1:length(layers)){
-              #   temp<-as.data.frame(layers[[i]][[1]])
-              #  # print(length(layers[[i]]))
-              #   if(length(layers[[i]]) <= 1){ 
-              #   layers[[i]]<-temp
-              #   next
-              #   }
-              #   for(j in 2:length(layers[[i]])){
-              #     temp<-rbind(temp, layers[[i]][[j]])
-              #   }
-              #   layers[[i]]<-temp[[1]]
-              # }
-                    atomic_layer <- data
-      for(i in 1:length(layers)){
-        for(k in 1:length(layers[[i]]$start_pos)){
-          layers[[i]]$start_index[k]<-which(atomic_layer$pos==layers[[i]]$start_pos[k] & as.character(atomic_layer$chr) == as.character(layers[[i]]$chr[k]))
-          layers[[i]]$stop_index[k]<-which(atomic_layer$pos==layers[[i]]$stop_pos[k] & as.character(atomic_layer$chr) == as.character(layers[[i]]$chr[k]))
-        }
-      }
-      built_layers <- list()
-      built_layers[[1]] <- in_layer_merge(dmrs = layers[[1]], CG_table = atomic_layer, FDR_scaler = fdrscaler, lookup_table = cltable)
-      built_layers[[1]] <- in_layer_merge(dmrs = built_layers[[1]], CG_table = atomic_layer, FDR_scaler = fdrscaler, lookup_table = cltable)
-      built_layers[[1]] <- trim_layer(dmrs = built_layers[[1]], CG_table = atomic_layer, FDR_scaler = 2, lookup_table = cltable)
-      for(i in 2:length(layers)){
-        #print(i)
-        built_layers[[i]] <- build_next_layer(prev_layer = built_layers[[i-1]], 
-                                              windows_to_layer = layers[[i]], 
-                                              CG_table = atomic_layer,
-                                              FDR_scaler=fdrscaler,
-                                              lookup_table = cltable)
-      built_layers[[i]] <- in_layer_merge(dmrs = built_layers[[i]], CG_table = atomic_layer, FDR_scaler = fdrscaler, lookup_table = cltable)
-      built_layers[[i]] <- in_layer_merge(dmrs = built_layers[[i]], CG_table = atomic_layer, FDR_scaler = fdrscaler, lookup_table = cltable)
-      built_layers[[i]] <- trim_layer(dmrs = built_layers[[i]], CG_table = atomic_layer, FDR_scaler = 2, lookup_table = cltable)
-       # print("done with one")
-      }
+
+
+############################     run everything         #########################
+num_perm <- 40
+clt_reps <- 5e4
+
+rim <- dmrscaler::generate_rand_index_matrix(num_controls = length(g1),
+                                             num_cases = length(g2),
+                                             num_permutations = num_perm)
+mrp <- dmrscaler::run_MWW_rand_permutation(index_matrix = rim, 
+                                           Beta = B,
+                                           num_permutations = num_perm)
+mrp <- -log10(mrp)
+mwr <- dmrscaler::run_MWW(control_indices = which(is.element(colnames(B),g1)) ,
+                          case_indices = which(is.element(colnames(B),g2)),
+                          Beta = B)
+mwr <- -log10(mwr)
+fdt <- dmrscaler::write_FDR_table(real_table = mwr,
+                                  rand_table = mrp)
+
+fdrscaler <- dmrscaler::get_FDR_scalar(MWW_FDR_table = fdt,
+                                       MWW_FDR_threshold = 0.1)
+if(is.na(fdrscaler)){fdrscaler <- 1}
+cltable <- dmrscaler::write_CLT_lookup_table(num_reps = clt_reps ,
+                                             data_to_sample = mwr$p_val,
+                                             FDR_scaler = fdrscaler,
+                                             clt_numCGs = c(2, 5, 10, 25, 50))
+
+data <- locs[,1:3]
+data$chr <- as.factor(data$chr)
+colnames(data)<-c("names","pos","chr")
+data$scoring_values <- mwr$p_val
+#  data$chr <- droplevels(data$chr)
+layer_sizes <- c(2,4,8,16,32,64)
+layers<-list()
+
+
+dmrscaler_result <- dmrscaler::dmrscaler(locs = data, fdrscaler = fdrscaler, cltable=cltable, layer_sizes = layer_sizes)
+built_layers <- dmrscaler_result
+
 
 
 save(built_layers, file=paste(intermediate_data_dir,"/Sex_8M_8F_built_layers.Rdata",sep=""))              
-save(atomic_layer, file=paste(intermediate_data_dir,"/Sex_8M_8F_atomic_layers.Rdata",sep=""))
+save(data, file=paste(intermediate_data_dir,"/Sex_8M_8F_atomic_layers.Rdata",sep=""))
 
 load(file=paste(intermediate_data_dir,"/Sex_8M_8F_built_layers.Rdata",sep=""))              
 load(file=paste(intermediate_data_dir,"/Sex_8M_8F_atomic_layers.Rdata",sep=""))
@@ -182,22 +133,13 @@ design<-cbind(rep(1,length(colnames(B_mod) ) ), design )
 
 bumps_default <- bumphunter(B_mod,as.matrix(design), cutoff=0.1 , chr = locs$chr,B=250, pos=locs$pos)
 ## save output to csv
-#write.csv(bumps_default$table, paste(results_dir,"bumps_default.csv", sep = ""))
-
-
+write.csv(bumps_default$table, paste(results_dir,"bumps_default.csv", sep = ""))
 
 bumps_1Mb <- bumphunter(B_mod,as.matrix(design),chr = locs$chr, pos=locs$pos, cutoff=0.1, maxGap=1e6, B=250, smoothFunction=loessByCluster )
 ## save output to csv
-#write.csv(bumps_1Mb$table, paste(results_dir,"bumps_1Mb.csv", sep = ""))
+write.csv(bumps_1Mb$table, paste(results_dir,"bumps_1Mb.csv", sep = ""))
 
 
-# 
-# temp_names <- paste("called", bumps4$table$chr, bumps4$table$start, sep = "_")
-# bh_called_grs <- GRanges(
-#   seqnames = bumps4$table$chr,
-#   ranges = IRanges(start = bumps4$table$start, end = bumps4$table$end, names = temp_names),
-#   strand = rep("*", nrow(bumps4$table))
-# )
 
                 ## DMRcate  ##
 
@@ -206,15 +148,42 @@ colnames(design) <- c("(Intercept)","(Intercept)")
 myannotation <- cpg.annotate("array", M_mod, what="M", arraytype = "450K",analysis.type="differential", design=design, coef=2)
 dmrcate_dmrs_default <- dmrcate(myannotation, lambda=1000, C=2)
 ## save output to csv
-#write.csv(dmrcate_dmrs_default$results, paste(results_dir,"dmrcate_dmrs_default.csv", sep = ""))
 dmrcate_dmrs_default  <- extractRanges(dmrcate_dmrs_default , genome = "hg19")
+write.csv(dmrcate_dmrs_default$results, paste(results_dir,"dmrcate_dmrs_default.csv", sep = ""))
 
 dmrcate_dmrs_1M <- dmrcate(myannotation, lambda=1e6, C=2000)
 ## save output to csv
-#write.csv(dmrcate_dmrs_1M$results, paste(results_dir,"dmrcate_dmrs_1M.csv", sep = ""))
-
-
 dmrcate_dmrs_1M  <- extractRanges(dmrcate_dmrs_1M , genome = "hg19")
+write.csv(dmrcate_dmrs_1M, paste(results_dir,"dmrcate_dmrs_1M.csv", sep = ""))
+
+
+
+              ## combp  ##
+  ## Set up bed file
+combp_input_bed <- data.frame(chrom=locs$chr,start=locs$pos,end=locs$pos+1,pval=10^-mwr$p_val)
+combp_input_bed <- combp_input_bed[order(combp_input_bed$chrom),]
+colnames(combp_input_bed)[1] <- "#chrom"
+data.table::fwrite(combp_input_bed, file = "./intermediate_data2/combp_temp_input.bed", row.names = F,col.names = T, sep = "\t") 
+## Pass bed file into comb-p
+
+system("comb-p pipeline -c 4 --dist 1000000 --step 5000 --seed 1e-3 -p ./intermediate_data2/test --region-filter-p 0.1 ./intermediate_data_2/combp_temp_input.bed ")
+
+## Parse comb-p resuults into the CALLED_TP_FP and the MAPPING VALUES tables
+combp_results_1M_5k <- data.table::fread("./intermediate_data_2/test.regions-t.bed")
+write.csv(combp_results_1M_5k, paste(results_dir,"combp_results_1M_5k.csv", sep = ""))
+
+
+system("comb-p pipeline -c 4 --dist 1000 --step 100 --seed 1e-3 -p ./intermediate_data2/test --region-filter-p 0.1 ./intermediate_data_2/combp_temp_input.bed ")
+
+## Parse comb-p resuults into the CALLED_TP_FP and the MAPPING VALUES tables
+combp_results_1k_100 <- data.table::fread("./intermediate_data_2/test.regions-t.bed")
+write.csv(combp_results_1k_100, paste(results_dir,"combp_results_1k_100.csv", sep = ""))
+
+
+save.image()
+
+  
+  ## write to csv
 ```
 
 
@@ -247,11 +216,11 @@ df$name <- paste("lambda=",df$lambda,"lambda/C=",df$ratio)
 ggplot(df, aes(x=percentile, y=log10(width),color=as.factor(lambda) ))+
   geom_line()+
   facet_grid(cols = vars("lambda/C"=ratio))
-}
+
 ggplot(df, aes(x=percentile, y=log10(width),color=as.factor(ratio) ))+
   geom_line()+
   facet_grid(cols = vars("lambda/C"=lambda))
-}
+
 
 
 
