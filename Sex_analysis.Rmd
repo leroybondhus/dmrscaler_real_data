@@ -1067,6 +1067,34 @@ grid.arrange(ggSex, ggAuto, nrow=1)
 dev.off()  
 
 
+
+#combp 
+which <- which(combp_results_1M_100k$X.chrom == "chrX")
+df <- data.frame(widths = combp_results_1M_100k$end[which] - combp_results_1M_100k$start[which])
+ggSex <- ggplot(df, aes(x=log10(widths)) )+
+  ggtitle(label = "X chromosome DMR widths",
+          subtitle = paste("combp dist = 1 Mb,step = 100 kb", sep=""))+
+  geom_histogram(bins=50)+
+  xlim(0,8.5)+
+  theme(text=element_text(size=18))
+
+which <- which(combp_results_1M_100k$X.chrom != "chrX" & combp_results_1M_100k$X.chrom != "chrY"  )
+df <- data.frame(widths = combp_results_1M_100k$end[which] - combp_results_1M_100k$start[which])
+ggAuto <- ggplot(df, aes(x=log10(widths)) )+
+  ggtitle(label = "Autosome widths",
+          subtitle = paste("combp dist = 1 Mb,step = 100 kb", sep=""))+
+  geom_histogram(bins=50)+
+  xlim(0,8.5)+
+  theme(text=element_text(size=18))
+
+filename=paste(results_dir, "/combp_1Mb_100kb_SEX_width_distr.png", sep = "")  
+png(filename = filename, width = 10, height = 6, units = "in", res = 150)
+grid.newpage()
+grid.arrange(ggSex, ggAuto, nrow=1)
+dev.off()  
+
+
+
 ## dmrcate  
 which <- which( dmrcate_dmrs_1M@seqnames == "chrX")  
 df <- data.frame(widths = dmrcate_dmrs_1M@ranges@width[which])
@@ -1124,6 +1152,29 @@ temp <- quantile(log10(bumps_1Mb$table$end[which] - bumps_1Mb$table$start[which]
 quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
                                      method = "bumphunter",pars="bumphunter:maxWidth=1Mb", chrs="Autosome"))
 
+
+
+which <- which(combp_results_1k_100$X.chrom == "chrX")
+temp <- quantile(log10(combp_results_1k_100$end[which] - combp_results_1k_100$start[which]), seq(0.01,1,by=0.01), type=1)
+quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                      method = "combp",pars="combp:dist=1kb,step=100bp", chrs="chrX"))
+which <- which(combp_results_1k_100$X.chrom != "chrX" & combp_results_1k_100$X.chrom != "chrY" )
+temp <- quantile(log10(combp_results_1k_100$end[which] - combp_results_1k_100$start[which]), seq(0.01,1,by=0.01), type=1)
+quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                     method = "combp",pars="combp:dist=1kb,step=100bp", chrs="Autosome"))
+
+which <- which(combp_results_1M_100k$X.chrom == "chrX")
+temp <- quantile(log10(combp_results_1M_100k$end[which] - combp_results_1M_100k$start[which]), seq(0.01,1,by=0.01), type=1)
+quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                      method = "combp",pars="combp:dist=1Mb,step=100kb", chrs="chrX"))
+which <- which(combp_results_1M_100k$X.chrom != "chrX" & combp_results_1M_100k$X.chrom != "chrY" )
+temp <- quantile(log10(combp_results_1M_100k$end[which] - combp_results_1M_100k$start[which]), seq(0.01,1,by=0.01), type=1)
+quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                     method = "combp",pars="combp:dist=1Mb,step=100kb", chrs="Autosome"))
+
+
+
+
 which <- which(dmrcate_dmrs_default@seqnames == "chrX")
 temp <- quantile(log10(dmrcate_dmrs_default@ranges@width[which]), seq(0.01,1,by=0.01), type=1)
 quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
@@ -1149,14 +1200,14 @@ gg<-ggplot(quants, aes(x=percentile, y=value, color=pars))+
   facet_grid(rows = vars(chrs),cols = vars(method) )+
   theme(text=element_text(size=18))
 
-filename=paste(figures_dir, "/Supplemental/SEX_Width_Percentile_Plot.png", sep = "")
+filename=paste(results_dir, "/SEX_Width_Percentile_Plot.png", sep = "")
 png(filename = filename, width = 10, height = 6, units = "in", res = 240)
 grid.newpage()
 grid.arrange(gg, nrow=1)
 dev.off()  
 
 quants$width <- 10^quants$value
-filename=paste(figures_dir, "/Supplemental/SEX_Width_Percentile.csv", sep = "")
+filename=paste(results_dir, "/SEX_Width_Percentile.csv", sep = "")
 write.csv(file = filename, quants)
 
 ```
