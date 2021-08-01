@@ -41,6 +41,7 @@ results_dir <-paste("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/results2/S
 figures_dir <- paste("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/figures2/SEX/")
 intermediate_data_dir <-paste("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data2/SEX/")
 library(Gviz)
+library(data.table)
 ```
 
 
@@ -52,12 +53,10 @@ locs <- getLocations(GRset.funnorm)
 locs <- data.frame("names"=locs@ranges@NAMES, "pos"=locs@ranges@start, "chr" = rep(locs@seqnames@values, locs@seqnames@lengths))
 controls<-which(pdat$Sample_Group==" Control" & pdat$X==" whole blood")
 B<-getBeta(GRset.funnorm)
-cB<-B[,controls]
 cP <-pdat[controls,]
 locs <- getLocations(GRset.funnorm)
 
 M<-getM(GRset.funnorm)
-cB<-B[,controls]
 locs <- data.frame("names"=locs@ranges@NAMES, "pos"=locs@ranges@start, "chr" = rep(locs@seqnames@values, locs@seqnames@lengths))
 cdf <- as.data.frame(cP)
 ```
@@ -156,7 +155,6 @@ dmrcate_dmrs_1M <- dmrcate(myannotation, lambda=1e6, C=2000)
 dmrcate_dmrs_1M  <- extractRanges(dmrcate_dmrs_1M , genome = "hg19")
 write.csv(dmrcate_dmrs_1M, paste(results_dir,"dmrcate_dmrs_1M.csv", sep = ""))
 
-
               ## combp  ##
   ## Set up bed file
 combp_input_bed <- data.frame(chrom=locs$chr,start=locs$pos,end=locs$pos+1,pval=10^-mwr$p_val)
@@ -167,13 +165,18 @@ data.table::fwrite(combp_input_bed, file = "./intermediate_data2/combp_temp_inpu
 
 system("comb-p pipeline -c 4 --dist 1000 --step 100 --seed 1e-3 -p ./intermediate_data2/test --region-filter-p 0.1 ./intermediate_data2/combp_temp_input.bed ")
 ## Parse comb-p resuults into the CALLED_TP_FP and the MAPPING VALUES tables
+print("done with 1st combp")
 combp_results_1k_100 <- data.table::fread("./intermediate_data2/test.regions-t.bed")
 write.csv(combp_results_1k_100, paste(results_dir,"combp_results_1k_100.csv", sep = ""))
 
-system("comb-p pipeline -c 4 --dist 1000000 --step 5000 --seed 1e-3 -p ./intermediate_data2/test --region-filter-p 0.1 ./intermediate_data2/combp_temp_input.bed ")
+Sys.time()
+print("start with 2nd combp")
+system("comb-p pipeline -c 4 --dist 1000000 --step 100000 --seed 1e-3 -p ./intermediate_data2/test --region-filter-p 0.1 ./intermediate_data2/combp_temp_input.bed ")
+Sys.time() ## takes 7hrs at dist=1mb step=100kb :0
 ## Parse comb-p resuults into the CALLED_TP_FP and the MAPPING VALUES tables
-combp_results_1M_5k <- data.table::fread("./intermediate_data2/test.regions-t.bed")
-write.csv(combp_results_1M_5k, paste(results_dir,"combp_results_1M_5k.csv", sep = ""))
+combp_results_1M_100k <- data.table::fread("./intermediate_data2/test.regions-t.bed")
+write.csv(combp_results_1M_100k, paste(results_dir,"combp_results_1M_100k.csv", sep = ""))
+print("done with 2nd combp")
 
 
 save.image()
@@ -304,7 +307,7 @@ results_table <- rbind(results_table,
                          "chrX_mean_width" = mean(bumps_default$table$end[which]-bumps_default$table$start[which]),
                          "chrX_median_width"= median(bumps_default$table$end[which]-bumps_default$table$start[which]),                         
                          "chrX_percent_total_width" = -1,  # add later
-                         "autosome_num_dmrs" = nrow(built_layers[[i]][which_not,]),
+                         "autosome_num_dmrs" = nrow(bumps_default$table[which_not,]),
                          "autosome_mean_width" = mean(bumps_default$table$end[which_not]-bumps_default$table$start[which_not]),
                          "autosome_median_width"= median(bumps_default$table$end[which_not]-bumps_default$table$start[which_not]),                            
                          "autosome_percent_total_width" = -1 # add late
@@ -319,13 +322,45 @@ results_table <- rbind(results_table,
                          "chrX_mean_width" = mean(bumps_1Mb$table$end[which]-bumps_1Mb$table$start[which]),
                          "chrX_median_width"= median(bumps_1Mb$table$end[which]-bumps_1Mb$table$start[which]),                         
                          "chrX_percent_total_width" = -1,  # add later
-                         "autosome_num_dmrs" = nrow(built_layers[[i]][which_not,]),
+                         "autosome_num_dmrs" = nrow(bumps_1Mb$table[which_not,]),
                          "autosome_mean_width" = mean(bumps_1Mb$table$end[which_not]-bumps_1Mb$table$start[which_not]),
                          "autosome_median_width"= median(bumps_1Mb$table$end[which_not]-bumps_1Mb$table$start[which_not]),                            
                          "autosome_percent_total_width" = -1 # add late
                          ))
 rownames(results_table)[length(rownames(results_table))] <- "maxGap = 1 Mb"
 
+### Add combp results to table
+
+which <- which(combp_results_1k_100$X.chrom == "chrX")
+which_not <- which(combp_results_1k_100$X.chrom != "chrX" &
+                     combp_results_1k_100$X.chrom != "chrY")
+results_table <- rbind(results_table,
+                         data.frame("method" = "combp", 
+                         "chrX_num_dmrs" = nrow(combp_results_1k_100[which,]),
+                         "chrX_mean_width" = mean(combp_results_1k_100$end [which]-combp_results_1k_100$start[which]),
+                         "chrX_median_width"= median(combp_results_1k_100$end [which]-combp_results_1k_100$start[which]),                         
+                         "chrX_percent_total_width" = -1,  # add later
+                         "autosome_num_dmrs" = nrow(combp_results_1k_100[which_not,]),
+                         "autosome_mean_width" = mean(combp_results_1k_100$end[which_not]-combp_results_1k_100$start[which_not]),
+                         "autosome_median_width"= median(combp_results_1k_100$end[which_not]-combp_results_1k_100$start[which_not]),                            
+                         "autosome_percent_total_width" = -1 # add late
+                         ))
+rownames(results_table)[length(rownames(results_table))] <- "dist = 1 kb, step = 100 bp"
+
+which <- which(combp_results_1M_100k$X.chrom == "chrX")
+which_not <- which(combp_results_1M_100k$X.chrom != "chrX" & combp_results_1M_100k$X.chrom != "chrY")
+results_table <- rbind(results_table,
+                         data.frame("method" = "combp", 
+                         "chrX_num_dmrs" = nrow(combp_results_1M_100k[which,]),
+                         "chrX_mean_width" = mean(combp_results_1M_100k$end[which]-combp_results_1M_100k$start[which]),
+                         "chrX_median_width"= median(combp_results_1M_100k$end[which]-combp_results_1M_100k$start[which]),                         
+                         "chrX_percent_total_width" = -1,  # add later
+                         "autosome_num_dmrs" = nrow(combp_results_1M_100k[which_not,]),
+                         "autosome_mean_width" = mean(combp_results_1M_100k$end[which_not]-combp_results_1M_100k$start[which_not]),
+                         "autosome_median_width"= median(combp_results_1M_100k$end[which_not]-combp_results_1M_100k$start[which_not]),                            
+                         "autosome_percent_total_width" = -1 # add late
+                         ))
+rownames(results_table)[length(rownames(results_table))] <- "dist = 1 Mb, step = 100 kb"
 
 ### add dmrcate results to table
 widths <- width(dmrcate_dmrs_default)
