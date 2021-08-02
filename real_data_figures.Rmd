@@ -19,9 +19,9 @@ library(HilbertCurve)
 
 
 ```{r setup for KAT6A analysis}
-load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/KAT6A_GRset.funnorm.Rdata")
-load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/KAT6A_dmrscaler_built_layers.Rdata")
-load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/450k_KAT6A_dmrscaler_built_layers.Rdata")
+load("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/KAT6A_GRset.funnorm.Rdata")
+load("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/KAT6A_dmrscaler_built_layers.Rdata")
+load("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/450k_KAT6A_dmrscaler_built_layers.Rdata")
 
 B<-getBeta(GRset.funnorm)
 M<-getM(GRset.funnorm)
@@ -52,9 +52,9 @@ kws_dat <- list("KAT6A" = list(B=B,locs=locs,patient_index=patient_index,control
 ```
 
 ```{r setup for Weaver analysis}
-load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Weaver_GRset.funnorm.Rdata")
-load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Weaver_dmrscaler_built_layers.Rdata")
-load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/850k_Weaver_dmrscaler_built_layers.Rdata")
+load("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Weaver_GRset.funnorm.Rdata")
+load("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Weaver_dmrscaler_built_layers.Rdata")
+load("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/850k_Weaver_dmrscaler_built_layers.Rdata")
 
 
 B<-getBeta(GRset.funnorm)
@@ -85,9 +85,9 @@ kws_dat[["Weaver"]] <-list(B=B, locs=locs, patient_index=patient_index, control_
 ```
 
 ```{r setup for Sotos analysis}
-load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sotos_GRset.funnorm.Rdata")
-load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sotos_dmrscaler_built_layers.Rdata")
-load("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/850k_Sotos_dmrscaler_built_layers.Rdata")
+load("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sotos_GRset.funnorm.Rdata")
+load("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sotos_dmrscaler_built_layers.Rdata")
+load("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/850k_Sotos_dmrscaler_built_layers.Rdata")
 
 
 B<-getBeta(GRset.funnorm)
@@ -120,13 +120,13 @@ kws_dat[["Sotos"]] <-list(B=B, locs=locs, patient_index=patient_index, control_i
 
 
 ```{r bumphunter and dmrcate}
-#results_dir <-paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/results/KAT6A/")
+results_dir <-paste("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/results2/KAT6A/")
 
 ##write csv
 
-#for(i in 1:5){
-#  write.csv(built_layers[[i]], file = paste(results_dir, "dmrscaler_layer",i,".csv"))
-#}
+for(i in 1:5){
+  write.csv(built_layers[[i]], file = paste(results_dir, "dmrscaler_layer",i,".csv"))
+}
 
 library(DMRcate)
 #g1<-pdat$Basename[which(trimws(pdat$Sex)=="female")][1:8]
@@ -140,13 +140,13 @@ design<-cbind(rep(1,length(colnames(B_mod) ) ), design )
 
 bumps_default <- bumphunter(B_mod,as.matrix(design), cutoff=0.1 , chr = locs$chr,B=250, pos=locs$pos)
 ## save output to csv
-#write.csv(bumps_default$table, paste(results_dir,"bumps_default.csv", sep = ""))
+write.csv(bumps_default$table, paste(results_dir,"bumps_default.csv", sep = ""))
 
 
 
 bumps_1Mb <- bumphunter(B_mod,as.matrix(design),chr = locs$chr, pos=locs$pos, cutoff=0.1, maxGap=1e6, B=250, smoothFunction=loessByCluster )
 ## save output to csv
-#write.csv(bumps_1Mb$table, paste(results_dir,"bumps_1Mb.csv", sep = ""))
+write.csv(bumps_1Mb$table, paste(results_dir,"bumps_1Mb.csv", sep = ""))
 
 
 # 
@@ -164,15 +164,44 @@ colnames(design) <- c("(Intercept)","(Intercept)")
 myannotation <- cpg.annotate("array", M_mod, what="M", arraytype = "450K",analysis.type="differential", design=design, coef=2, fdr = 0.1)
 dmrcate_dmrs_default <- dmrcate(myannotation, lambda=1000, C=2)
 ## save output to csv
-#write.csv(dmrcate_dmrs_default$results, paste(results_dir,"dmrcate_dmrs_default.csv", sep = ""))
+write.csv(dmrcate_dmrs_default$results, paste(results_dir,"dmrcate_dmrs_default.csv", sep = ""))
 dmrcate_dmrs_default  <- extractRanges(dmrcate_dmrs_default , genome = "hg19")
 
 dmrcate_dmrs_1M <- dmrcate(myannotation, lambda=1e6, C=2000)
 ## save output to csv
-#write.csv(dmrcate_dmrs_1M$results, paste(results_dir,"dmrcate_dmrs_1M.csv", sep = ""))
+write.csv(dmrcate_dmrs_1M$results, paste(results_dir,"dmrcate_dmrs_1M.csv", sep = ""))
 
 
 dmrcate_dmrs_1M  <- extractRanges(dmrcate_dmrs_1M , genome = "hg19")
+
+
+
+
+       ## combp  ##
+  ## Set up bed file
+combp_input_bed <- data.frame(chrom=locs$chr,start=locs$pos,end=locs$pos+1,pval=10^-mwr$p_val)
+combp_input_bed <- combp_input_bed[order(as.character(combp_input_bed$chrom)),]
+colnames(combp_input_bed)[1] <- "#chrom"
+data.table::fwrite(combp_input_bed, file = "./intermediate_data2/combp_temp_input.bed", row.names = F,col.names = T, sep = "\t") 
+## Pass bed file into comb-p
+Sys.time()
+system("comb-p pipeline -c 4 --dist 1000 --step 100 --seed 1e-3 -p ./intermediate_data2/test --region-filter-p 0.1 ./intermediate_data2/combp_temp_input.bed ")
+Sys.time() 
+## Parse comb-p resuults into the CALLED_TP_FP and the MAPPING VALUES tables
+print("done with 1st combp")
+combp_results_1k_100 <- data.table::fread("./intermediate_data2/test.regions-t.bed")
+write.csv(combp_results_1k_100, paste(results_dir,"combp_results_1k_100.csv", sep = ""))
+
+Sys.time()
+print("start with 2nd combp")
+system("comb-p pipeline -c 4 --dist 1000000 --step 5000 --seed 1e-3 -p ./intermediate_data2/test --region-filter-p 0.1 ./intermediate_data2/combp_temp_input.bed ")
+Sys.time() 
+## Parse comb-p resuults into the CALLED_TP_FP and the MAPPING VALUES tables
+combp_results_1M_100k <- data.table::fread("./intermediate_data2/test.regions-t.bed")
+write.csv(combp_results_1M_100k, paste(results_dir,"combp_results_1M_100k.csv", sep = ""))
+print("done with 2nd combp")
+
+save.image()
 ```
 
 ```{r write DMR width percentiles}
