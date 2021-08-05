@@ -87,7 +87,7 @@ kws_dat[["Weaver"]] <-list(B=B, locs=locs, patient_index=patient_index, control_
 ```{r setup for Sotos analysis}
 load("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sotos_GRset.funnorm.Rdata")
 load("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Sotos_dmrscaler_built_layers.Rdata")
-load("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/850k_Sotos_dmrscaler_built_layers.Rdata")
+#load("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/850k_Sotos_dmrscaler_built_layers.Rdata")
 
 
 B<-getBeta(GRset.funnorm)
@@ -111,7 +111,7 @@ linewide=c(2, 2 )
 g1 <- colnames(B)[patient_index]
 g2 <- colnames(B)[control_index]
 
-
+kws_dat<-list()
 
 kws_dat[["Sotos"]] <-list(B=B, locs=locs, patient_index=patient_index, control_index=control_index,
                           atomic_layer=atomic_layer, built_layers=built_layers )
@@ -120,7 +120,7 @@ kws_dat[["Sotos"]] <-list(B=B, locs=locs, patient_index=patient_index, control_i
 
 
 ```{r bumphunter and dmrcate}
-results_dir <-paste("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/results2/KAT6A/")
+results_dir <-paste("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/results2/SOTOS/")
 
 ##write csv
 
@@ -178,11 +178,15 @@ dmrcate_dmrs_1M  <- extractRanges(dmrcate_dmrs_1M , genome = "hg19")
 
 
        ## combp  ##
+# clean up a bit
+rm(M)
   ## Set up bed file
-combp_input_bed <- data.frame(chrom=locs$chr,start=locs$pos,end=locs$pos+1,pval=10^-mwr$p_val)
+locs <- atomic_layer
+combp_input_bed <- data.frame(chrom=locs$chr,start=locs$pos,end=locs$pos+1,pval=10^-atomic_layer$scoring_values)
 combp_input_bed <- combp_input_bed[order(as.character(combp_input_bed$chrom)),]
 colnames(combp_input_bed)[1] <- "#chrom"
-data.table::fwrite(combp_input_bed, file = "./intermediate_data2/combp_temp_input.bed", row.names = F,col.names = T, sep = "\t") 
+data.table::fwrite(combp_input_bed, file = "./intermediate_data2/combp_temp_input.bed", row.names = F,col.names = T, sep = "\t")
+rm(combp_input_bed)
 ## Pass bed file into comb-p
 Sys.time()
 system("comb-p pipeline -c 4 --dist 1000 --step 100 --seed 1e-3 -p ./intermediate_data2/test --region-filter-p 0.1 ./intermediate_data2/combp_temp_input.bed ")
@@ -193,34 +197,59 @@ combp_results_1k_100 <- data.table::fread("./intermediate_data2/test.regions-t.b
 write.csv(combp_results_1k_100, paste(results_dir,"combp_results_1k_100.csv", sep = ""))
 
 Sys.time()
-print("start with 2nd combp")
-system("comb-p pipeline -c 4 --dist 1000000 --step 5000 --seed 1e-3 -p ./intermediate_data2/test --region-filter-p 0.1 ./intermediate_data2/combp_temp_input.bed ")
+print("start with 10k,1k")
+system("comb-p pipeline -c 4 --dist 10000 --step 1000 --seed 1e-3 -p ./intermediate_data2/test --region-filter-p 0.1 ./intermediate_data2/combp_temp_input.bed ")
 Sys.time() 
 ## Parse comb-p resuults into the CALLED_TP_FP and the MAPPING VALUES tables
-combp_results_1M_100k <- data.table::fread("./intermediate_data2/test.regions-t.bed")
-write.csv(combp_results_1M_100k, paste(results_dir,"combp_results_1M_100k.csv", sep = ""))
+combp_results_10k_1k <- data.table::fread("./intermediate_data2/test.regions-t.bed")
+write.csv(combp_results_10k_1k, paste(results_dir,"combp_results_10k_1k.csv", sep = ""))
+print("done with 1st combp")
+
+
+Sys.time()
+print("start with 100k 10k")
+system("comb-p pipeline -c 4 --dist 100000 --step 10000 --seed 1e-3 -p ./intermediate_data2/test --region-filter-p 0.1 ./intermediate_data2/combp_temp_input.bed ")
+Sys.time() 
+## Parse comb-p resuults into the CALLED_TP_FP and the MAPPING VALUES tables
+combp_results_100k_10k <- data.table::fread("./intermediate_data2/test.regions-t.bed")
+write.csv(combp_results_100k_10k, paste(results_dir,"combp_results_100k_10k.csv", sep = ""))
 print("done with 2nd combp")
 
 save.image()
 ```
 
 ```{r write DMR width percentiles}
+library("stringr")
+
+temp <- str_split(dmrcate_dmrs_1M$coord, "[:-]", simplify = T)
+dmrcate_dmrs_1M$width <- as.numeric(temp[,3])-as.numeric(temp[,2])
+temp <- str_split(dmrcate_dmrs_default$coord, "[:-]", simplify = T)
+dmrcate_dmrs_default$width <- as.numeric(temp[,3])-as.numeric(temp[,2])
+
 quants <- data.frame(percentile = numeric(), value = numeric(), method = character(), pars = character())
 for(i in 1:length(built_layers)){
   temp <- quantile(log10(built_layers[[i]]$stop_pos - built_layers[[i]]$start_pos), seq(0.01,1,by=0.01), type=1)
   quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
                                      method = "DMRscaler", pars = paste("DMRscaler_layer",i,sep = "")) )
 }
-temp <- quantile(log10(bumps_default$table$end - bumps_default$table$start), seq(0.01,1,by=0.01), type=1)
+temp <- quantile(log10(bumps_default$end - bumps_default$start), seq(0.01,1,by=0.01), type=1)
 quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
                                       method = "bumphunter",pars="bumphunter_default"))
-temp <- quantile(log10(bumps_1Mb$table$end - bumps_1Mb$table$start), seq(0.01,1,by=0.01), type=1)
+temp <- quantile(log10(bumps_1Mb$end - bumps_1Mb$start), seq(0.01,1,by=0.01), type=1)
 quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
                                      method = "bumphunter",pars="bumphunter:maxWidth=1Mb"))
-temp <- quantile(log10(dmrcate_dmrs_default@ranges@width), seq(0.01,1,by=0.01), type=1)
+
+temp <- quantile(log10(combp_results_1k_100$end - combp_results_1k_100$start), seq(0.01,1,by=0.01), type=1)
+quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                      method = "combp",pars="combp:dist=1kb,step=100bp"))
+temp <- quantile(log10(combp_results_100k_10k$end - combp_results_100k_10k$start), seq(0.01,1,by=0.01), type=1)
+quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                     method = "combp",pars="combp:dist=100kb,step=10kb"))
+
+temp <- quantile(log10(dmrcate_dmrs_default$width), seq(0.01,1,by=0.01), type=1)
 quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
                                      method = "DMRcate",pars="dmrcate_default"))
-temp <- quantile(log10(dmrcate_dmrs_1M@ranges@width), seq(0.01,1,by=0.01), type=1)
+temp <- quantile(log10(dmrcate_dmrs_1M$width), seq(0.01,1,by=0.01), type=1)
 quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
                                      method = "DMRcate",pars="dmrcate:lambda=1Mb,C=2000"))
 
@@ -230,15 +259,18 @@ gg<-ggplot(quants, aes(x=percentile, y=value, color=pars))+
   ylab("-log10(Width)")+
   facet_grid(cols = vars(method) )+
   theme(text=element_text(size=18))
+gg
 
-filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/Supplemental/Sotos_Width_Percentile_Plot.png", sep = "")
+library(gridExtra)
+library(grid)
+filename=paste(results_dir,"/_w_combp_Width_Percentile_Plot.png", sep = "")
 png(filename = filename, width = 10, height = 6, units = "in", res = 240)
 grid.newpage()
 grid.arrange(gg, nrow=1)
 dev.off()  
 
 quants$width <- 10^quants$value
-filename=paste("/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/figures/Supplemental/Sotos_Width_Percentile.csv", sep = "")
+filename=paste(results_dir, "_w_combp_Width_Percentile.csv", sep = "")
 write.csv(file = filename, quants)
 
 ```
