@@ -21,7 +21,7 @@ library(HilbertCurve)
 ```{r setup for KAT6A analysis}
 load("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/KAT6A_GRset.funnorm.Rdata")
 load("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/KAT6A_dmrscaler_built_layers.Rdata")
-load("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/450k_KAT6A_dmrscaler_built_layers.Rdata")
+#load("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/450k_KAT6A_dmrscaler_built_layers.Rdata")
 
 B<-getBeta(GRset.funnorm)
 M<-getM(GRset.funnorm)
@@ -54,7 +54,7 @@ kws_dat <- list("KAT6A" = list(B=B,locs=locs,patient_index=patient_index,control
 ```{r setup for Weaver analysis}
 load("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Weaver_GRset.funnorm.Rdata")
 load("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/Weaver_dmrscaler_built_layers.Rdata")
-load("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/850k_Weaver_dmrscaler_built_layers.Rdata")
+#load("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/850k_Weaver_dmrscaler_built_layers.Rdata")
 
 
 B<-getBeta(GRset.funnorm)
@@ -120,7 +120,7 @@ kws_dat[["Sotos"]] <-list(B=B, locs=locs, patient_index=patient_index, control_i
 
 
 ```{r bumphunter and dmrcate}
-results_dir <-paste("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/results2/SOTOS/")
+results_dir <-paste("/home/leroy/Desktop/PROJECTS/dmrscaler_real_data/results2/KAT6A/")
 
 ##write csv
 
@@ -223,8 +223,12 @@ library("stringr")
 
 temp <- str_split(dmrcate_dmrs_1M$coord, "[:-]", simplify = T)
 dmrcate_dmrs_1M$width <- as.numeric(temp[,3])-as.numeric(temp[,2])
+dmrcate_dmrs_1M$chr <- temp[,1]
+
+
 temp <- str_split(dmrcate_dmrs_default$coord, "[:-]", simplify = T)
 dmrcate_dmrs_default$width <- as.numeric(temp[,3])-as.numeric(temp[,2])
+dmrcate_dmrs_default$chr <- temp[,1]
 
 quants <- data.frame(percentile = numeric(), value = numeric(), method = character(), pars = character())
 for(i in 1:length(built_layers)){
@@ -242,9 +246,9 @@ quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = tem
 temp <- quantile(log10(combp_results_1k_100$end - combp_results_1k_100$start), seq(0.01,1,by=0.01), type=1)
 quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
                                       method = "combp",pars="combp:dist=1kb,step=100bp"))
-temp <- quantile(log10(combp_results_100k_10k$end - combp_results_100k_10k$start), seq(0.01,1,by=0.01), type=1)
+temp <- quantile(log10(combp_results_1M_5k$end - combp_results_1M_5k$start), seq(0.01,1,by=0.01), type=1)
 quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
-                                     method = "combp",pars="combp:dist=100kb,step=10kb"))
+                                     method = "combp",pars="combp:dist=1Mb,step=5kb"))
 
 temp <- quantile(log10(dmrcate_dmrs_default$width), seq(0.01,1,by=0.01), type=1)
 quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
@@ -610,30 +614,64 @@ for( i in 1:length(built_layers)){
 
 ### Add bumphunter results to table
 
-which_not <- which(bumps_default$table$chr != "chrX" & bumps_default$table$chr != "chrY")
+which_not <- which(bumps_default$chr != "chrX" & bumps_default$chr != "chrY")
 results_table <- rbind(results_table,
                          data.frame("method" = "bumphunter", 
                          "autosome_num_dmrs" = nrow(built_layers[[i]][which_not,]),
-                         "autosome_mean_width" = mean(bumps_default$table$end[which_not]-bumps_default$table$start[which_not]),
-                         "autosome_median_width"= median(bumps_default$table$end[which_not]-bumps_default$table$start[which_not]),                            
+                         "autosome_mean_width" = mean(bumps_default$end[which_not]-bumps_default$start[which_not]),
+                         "autosome_median_width"= median(bumps_default$end[which_not]-bumps_default$start[which_not]),                            
                          "autosome_percent_total_width" = -1 # add late
                          ))
 rownames(results_table)[length(rownames(results_table))] <- "default: maxGap = 500 bp"
 
-which_not <- which(bumps_1Mb$table$chr != "chrX" & bumps_1Mb$table$chr != "chrY")
+which_not <- which(bumps_1Mb$chr != "chrX" & bumps_1Mb$chr != "chrY")
 results_table <- rbind(results_table,
                          data.frame("method" = "bumphunter", 
                          "autosome_num_dmrs" = nrow(built_layers[[i]][which_not,]),
-                         "autosome_mean_width" = mean(bumps_1Mb$table$end[which_not]-bumps_1Mb$table$start[which_not]),
-                         "autosome_median_width"= median(bumps_1Mb$table$end[which_not]-bumps_1Mb$table$start[which_not]),                            
+                         "autosome_mean_width" = mean(bumps_1Mb$end[which_not]-bumps_1Mb$start[which_not]),
+                         "autosome_median_width"= median(bumps_1Mb$end[which_not]-bumps_1Mb$start[which_not]),                            
                          "autosome_percent_total_width" = -1 # add late
                          ))
 rownames(results_table)[length(rownames(results_table))] <- "maxGap = 1 Mb"
 
 
+### Add combp results to table
+
+which_not <- which(combp_results_1k_100$X.chrom != "chrX" & combp_results_1k_100$X.chrom != "chrY")
+results_table <- rbind(results_table,
+                         data.frame("method" = "combp", 
+                         "autosome_num_dmrs" = nrow(built_layers[[i]][which_not,]),
+                         "autosome_mean_width" = mean(combp_results_1k_100$end[which_not]-combp_results_1k_100$start[which_not]),
+                         "autosome_median_width"= median(combp_results_1k_100$end[which_not]-combp_results_1k_100$start[which_not]),                            
+                         "autosome_percent_total_width" = -1 # add late
+                         ))
+rownames(results_table)[length(rownames(results_table))] <- "dist = 1kb, step = 100 bp"
+
+which_not <- which(combp_results_1M_5k$X.chrom != "chrX" & combp_results_1M_5k$X.chrom != "chrY")
+results_table <- rbind(results_table,
+                         data.frame("method" = "combp",
+                         "autosome_num_dmrs" = nrow(built_layers[[i]][which_not,]),
+                         "autosome_mean_width" = mean(combp_results_1M_5k$end[which_not]-combp_results_1M_5k$start[which_not]),
+                         "autosome_median_width"= median(combp_results_1M_5k$end[which_not]-combp_results_1M_5k$start[which_not]),
+                         "autosome_percent_total_width" = -1 # add late
+                         ))
+rownames(results_table)[length(rownames(results_table))] <- "dist = 1 Mb, step = 5 kb"
+
+# which_not <- which(combp_results_100k_10k$X.chrom != "chrX" & combp_results_100k_10k$X.chrom != "chrY")
+# results_table <- rbind(results_table,
+#                          data.frame("method" = "combp", 
+#                          "autosome_num_dmrs" = nrow(built_layers[[i]][which_not,]),
+#                          "autosome_mean_width" = mean(combp_results_100k_10k$end[which_not]-combp_results_100k_10kstart[which_not]),
+#                          "autosome_median_width"= median(combp_results_100k_10k$end[which_not]-combp_results_100k_10k$start[which_not]),                            
+#                          "autosome_percent_total_width" = -1 # add late
+#                          ))
+# rownames(results_table)[length(rownames(results_table))] <- "dist = 100kb, step = 10 kb"
+
+
+
 ### add dmrcate results to table
-widths <- width(dmrcate_dmrs_default)
-seqs <- as.character(seqnames(dmrcate_dmrs_default))
+widths <- dmrcate_dmrs_default$width
+seqs <- dmrcate_dmrs_default$chr
 
 which_not <- which(seqs != "chrX" & seqs != "chrY")
 results_table <- rbind(results_table,
@@ -645,8 +683,8 @@ results_table <- rbind(results_table,
                          ))
 rownames(results_table)[length(rownames(results_table))] <- "default: lambda = 1 kb, C = 2 "
 
-widths <- width(dmrcate_dmrs_1M)
-seqs <- as.character(seqnames(dmrcate_dmrs_1M))
+widths <- dmrcate_dmrs_1M$width
+seqs <- dmrcate_dmrs_1M$chr
 
 which_not <- which(seqs != "chrX" & seqs != "chrY")
 results_table <- rbind(results_table,
@@ -657,6 +695,9 @@ results_table <- rbind(results_table,
                          "autosome_percent_total_width" = -1 # add late
                          ))
 rownames(results_table)[length(rownames(results_table))] <- "lambda = 1 Mb, C = 2000"
+
+
+
 
 
 autosome_size <- 0
@@ -670,7 +711,7 @@ results_table$autosome_percent_total_width <- results_table$autosome_mean_width 
 results_table$method_params <- rownames(results_table)
 
 clean_results_table <- gt(results_table, groupname_col = "method", rowname_col = "method_params") 
-clean_results_table <- tab_header(clean_results_table, title = "Sotos Analysis DMR Summary Table")
+clean_results_table <- tab_header(clean_results_table, title = "KAT6A Analysis DMR Summary Table")
 clean_results_table <- tab_spanner(clean_results_table, label="Autosomes",
                                    columns = c("autosome_num_dmrs","autosome_mean_width","autosome_median_width", "autosome_percent_total_width") )
 clean_results_table <- tab_stubhead(clean_results_table , "method")
@@ -709,7 +750,7 @@ clean_results_table <- fmt_number(clean_results_table, columns = vars(autosome_m
 
 clean_results_table
 
-gtsave(clean_results_table, filename = "/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/results/SOTOS/Sotos_Analysis_DMR_Summary_Table.png")
+gtsave(clean_results_table, filename = paste(results_dir,"Analysis_DMR_summary_table.png",sep = ""))
  
 # 
 #  fmt_scientific(
