@@ -1267,11 +1267,12 @@ gg <- ggplot(quants_df, aes(x=percentile, y=delta_beta, color=name))+
   scale_y_continuous(breaks=seq(0,1,0.1))+
   scale_x_continuous(breaks=seq(0,1,0.1))+
   scale_color_brewer(palette = "RdBu" )+
-  theme_dark( )+
-  theme(panel.grid = element_line(color="white"), text=element_text(size=16), axis.text = element_text(size=24))
+  theme_bw( )+
+  theme(panel.grid = element_line(color="white"), text=element_text(size=16), axis.text = element_text(size=24))+
+  theme(panel.grid.major = element_line(colour = "grey70", size = 0.2))
 quantile(abs(d2[which]-d1[which]),seq(0,1,0.01))
-
-filename=paste(figures_dir, "/Supplemental/Supplement_neighboring_CG_percentiles", ".png", sep = "")  
+gg
+filename=paste(figures_dir, "Supplement_neighboring_CG_percentiles_v2", ".png", sep = "")  
 png(filename = filename, width = 14, height = 10, units = "in", res = 150)
 
     grid.newpage()

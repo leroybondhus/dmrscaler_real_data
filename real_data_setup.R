@@ -12,12 +12,9 @@ registerDoParallel()
 
 results_dir <-paste("./results/")
 
-
-## Example Dataset Setup
-##We will use data from GSE149960 from (REFERENCE) with DNA methylation from fibroblasts from progeria patients and controls measured on the Illumina methylation EPIC array.
+data_set_list <- list()
 
 library("GEOquery")
-
 
 
 # Pre-processing
@@ -25,7 +22,8 @@ library("GEOquery")
 
 gse <- getGEO("GSE74432", GSEMatrix = TRUE)
 phen <- gse$GSE74432_series_matrix.txt.gz@phenoData@data
-phen <- phen[intersect( grep("[Cc]ontrol", phen$characteristics_ch1.1),grep("whole blood",phen$characteristics_ch1.2) ),]
+phen <- phen[grep("whole blood",phen$characteristics_ch1.2),]
+phen$col_names <- stringr::str_split_fixed(basename(phen$supplementary_file), "_Grn", 2)[,1]
 rm(gse)
 
 ## get methylation data as idat files (NOTE: this saves files locally in working directory, unpacked size is 2.01 Gb
@@ -40,21 +38,63 @@ if(length(list.files("GSE74432/idat", pattern = "idat$"))==0){
 ##  Preprocessing
 library("minfi")
 
-
 ###  Reading of idat files done with minfi library ###
 idats_dir<-"GSE74432/idat"
-targets <- data.frame("Basename"= stringr::str_split_fixed(basename(phen$supplementary_file), "_Grn", 2)[,1] )
+
+####   Sotos
+phen_subset <- phen[union(grep("Sotos", phen$`disease state:ch1`),
+                            grep("Control", phen$`disease state:ch1`)),]
+targets <- data.frame("Basename"= phen_subset$col_names)
 RGSet <- read.metharray.exp(base = idats_dir, targets = targets)
 GRset.funnorm <- preprocessFunnorm(RGSet);rm(RGSet)
 snps <- getSnpInfo(object = GRset.funnorm)
 GRset.funnorm <- dropLociWithSnps(GRset.funnorm, snps=c("SBE", "CpG"), maf=0);rm(snps)
-rm(idats_dir)
-
-
-controls <- grep("[Cc]ontrol",phen$title)
+g1 <- phen_subset$col_names[grep("[Cc]ontrol", phen_subset$`disease state:ch1`)]
+g2 <- phen_subset$col_names[grep("[Ss]otos", phen_subset$`disease state:ch1`)]
 locs <- getLocations(GRset.funnorm)
 locs <- data.frame("names"=locs@ranges@NAMES, "pos"=locs@ranges@start, "chr" = rep(locs@seqnames@values, locs@seqnames@lengths))
 B <- getBeta(GRset.funnorm)
+
+data_set_list[["Sotos"]] <- list( data_set_name = "Sotos", g1 = g1, g2 = g2, locs = locs, B = B,
+                                  g1g2_labels = data.frame(g1="Control",g2="Sotos")) 
+
+####   Weaver
+phen_subset <- phen[union(grep("Weaver", phen$`disease state:ch1`),
+                          grep("Control", phen$`disease state:ch1`)),]
+targets <- data.frame("Basename"= phen_subset$col_names)
+RGSet <- read.metharray.exp(base = idats_dir, targets = targets)
+GRset.funnorm <- preprocessFunnorm(RGSet);rm(RGSet)
+snps <- getSnpInfo(object = GRset.funnorm)
+GRset.funnorm <- dropLociWithSnps(GRset.funnorm, snps=c("SBE", "CpG"), maf=0);rm(snps)
+g1 <- phen_subset$col_names[grep("[Cc]ontrol", phen_subset$`disease state:ch1`)]
+g2 <- phen_subset$col_names[grep("[Ww]eaver", phen_subset$`disease state:ch1`)]
+locs <- getLocations(GRset.funnorm)
+locs <- data.frame("names"=locs@ranges@NAMES, "pos"=locs@ranges@start, "chr" = rep(locs@seqnames@values, locs@seqnames@lengths))
+B <- getBeta(GRset.funnorm)
+
+data_set_list[["Weaver"]] <- list( data_set_name = "Weaver", g1 = g1, g2 = g2, locs = locs, B = B,
+                                  g1g2_labels = data.frame(g1="Control",g2="Weaver"))
+
+####   Sex
+phen_subset <- phen[ grep("Control", phen$`disease state:ch1`),]
+targets <- data.frame("Basename"= phen_subset$col_names)
+RGSet <- read.metharray.exp(base = idats_dir, targets = targets)
+GRset.funnorm <- preprocessFunnorm(RGSet);rm(RGSet)
+snps <- getSnpInfo(object = GRset.funnorm)
+GRset.funnorm <- dropLociWithSnps(GRset.funnorm, snps=c("SBE", "CpG"), maf=0);rm(snps)
+g1 <- phen_subset$col_names[grep("[Ff]emale", phen_subset$`gender:ch1`)]
+g2 <- phen_subset$col_names[grep("[Ff]emale", invert = T, phen_subset$`gender:ch1`)]
+locs <- getLocations(GRset.funnorm)
+locs <- data.frame("names"=locs@ranges@NAMES, "pos"=locs@ranges@start, "chr" = rep(locs@seqnames@values, locs@seqnames@lengths))
+B <- getBeta(GRset.funnorm)
+
+data_set_list[["Sex"]] <- list( data_set_name = "Sex", g1 = g1, g2 = g2, locs = locs, B = B,
+                                   g1g2_labels = data.frame(g1="Female",g2="Male")) 
+
+
+
+
+
 
 
 method_set_list <- list(
