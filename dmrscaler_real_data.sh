@@ -31,9 +31,11 @@ echo " "
 ## Edit the line below as needed:
 module load R/4.1.0
 
-DATA_SET_ID=$(expr 1+ $(expr $SGE_TASK_ID % $NUM_DATA_SETS ))
+DATA_SET_ID=$(expr 1 + $(expr $SGE_TASK_ID % $NUM_DATA_SETS ))
 METHOD_SET_ID=$(expr 1 + $(expr $SGE_TASK_ID / $NUM_DATA_SETS ))
 
+echo "dataset id is: $DATA_SET_ID"
+echo "methodset id is: $METHOD_SET_ID"
 
 Rscript real_data_individual_run.R $DATA_SET_ID $METHOD_SET_ID
 
