@@ -12,7 +12,7 @@ registerDoParallel()
 
 output_dir <-paste("./results/")
 
-load("_setup.Rdata")
+load("real_data_setup.Rdata")
 
 
 args <- commandArgs(trailingOnly = TRUE)
@@ -20,15 +20,15 @@ if(length(args) < 2){
   stop("must supply arguments for dataset (DATA_SET) and method parameters (METHOD_SET)")
 }
 
-DATASET_ID <- as.numeric(args[1])
+DATA_SET_ID <- as.numeric(args[1])
 METHOD_SET_ID <- as.numeric(args[2])
 # filename <- paste(output_dir,"args_test_",DATASET_ID,"__method_set_",METHOD_SET_ID,".csv", sep="" )
 # TEST <- data.frame("DATASET_ID"=DATASET_ID, "METHOD_SET_ID"=METHOD_SET_ID )
 # write.table(TEST, filename, row.names = F)
 
 
-data_set <- data_set_list[[DATASET_ID]]
-dataset_name <- names(datasets_list)[DATASET_ID]
+data_set <- data_set_list[[DATA_SET_ID]]
+data_set_name <- names(data_set_list)[DATA_SET_ID]
 
 method_set <- method_set_list[[METHOD_SET_ID]]
 method_set_name <- names(method_set_list)[METHOD_SET_ID]
@@ -44,34 +44,33 @@ B <- data_set$B
 ### End: Set up dataset ####
 
 
-
 method_name <- method_set$method
 
 if(grepl("dmrscaler", method_name, ignore.case = TRUE)){
-  mwr <- DMRscaler::run_MWW(g1,g2,B_mod)
+  mwr <- DMRscaler::run_MWW(g1,g2,B)
   locs$pval <- mwr$p_val
 } else if(grepl("bumphunter", method_name, ignore.case = TRUE)){
-  design <- rep(-1,length(colnames(B_mod)))
-  design[which(is.element(colnames(B_mod),g1))] <- 1
-  design <- cbind(rep(1,length(colnames(B_mod) ) ), design )
+  design <- rep(-1,length(colnames(B)))
+  design[which(is.element(colnames(B),g1))] <- 1
+  design <- cbind(rep(1,length(colnames(B) ) ), design )
   colnames(design) <- c("(Intercept)","(Intercept)")
   
 } else if(grepl("dmrcate", method_name, ignore.case = TRUE)){
-  design <- rep(-1,length(colnames(B_mod)))
-  design[which(is.element(colnames(B_mod),g1))] <- 1
-  design <- cbind(rep(1,length(colnames(B_mod) ) ), design )
+  design <- rep(-1,length(colnames(B)))
+  design[which(is.element(colnames(B),g1))] <- 1
+  design <- cbind(rep(1,length(colnames(B) ) ), design )
   colnames(design)<- c("(Intercept)","(Intercept)")
-  M <- log2(B_mod / (1-(B_mod)) )
+  M <- log2(B / (1-(B)) )
   myannotation <- cpg.annotate("array", object=M, what="M", arraytype = "450K", analysis.type = "differential", design = design,  coef = 2)
   
 } else if(grepl("comb", method_name, ignore.case = TRUE)){
-  mwr <- DMRscaler::run_MWW(g1,g2,B_mod)
+  mwr <- DMRscaler::run_MWW(g1,g2,B)
   locs$pval <- mwr$p_val
   combp_input_bed <- data.frame(chrom=locs$chr,start=locs$pos,end=locs$pos+1,pval=mwr$p_val)
   combp_input_bed <- combp_input_bed[order(combp_input_bed$chrom),]
   colnames(combp_input_bed)[1] <- "chrom"
   combp_input_bed <- combp_input_bed[order(as.character(combp_input_bed$chrom)),]
-  combp_temp_file_prefix <- paste(output_dir,"simul_set_",SIMUL_SET_ID,"__method_set_",METHOD_SET_ID,"_combp",sep="")
+  combp_temp_file_prefix <- paste(output_dir,"data_set_",DATA_SET_ID,"__method_set_",METHOD_SET_ID,"_combp",sep="")
   filename <- paste(combp_temp_file_prefix,"_input.bed",sep="")
   data.table::fwrite(combp_input_bed, file = filename, row.names = F,col.names = T, sep = "\t")
   combp_out_filename <- paste(combp_temp_file_prefix,".regions-t.bed",sep="")
@@ -87,7 +86,7 @@ if(grepl("dmrscaler", method_name, ignore.case = TRUE)){
 t1 <- Sys.time()
 method_set_result <- eval(parse(text=method_set$function_call))
 t2 <- Sys.time()
-filename <- paste(output_dir,"simul_set_",SIMUL_SET_ID,"__method_set_",METHOD_SET_ID,"_TIME.csv", sep="" )
+filename <- paste(output_dir,"data_set_",DATA_SET_ID,"__method_set_",METHOD_SET_ID,"_TIME.csv", sep="" )
 TIME <- data.frame("run"=basename(filename), "time"=as.numeric(difftime(t2,t1, units="secs")))
 write.table(TIME, filename, row.names = F)
 
@@ -128,5 +127,5 @@ if(grepl("dmrscaler", method_name, ignore.case = TRUE)){
   stop("method_name not found")
 }
 
-filename <- paste(output_dir,"simul_set_",SIMUL_SET_ID,"__method_set_",METHOD_SET_ID,"_result.csv", sep="" )
+filename <- paste(output_dir,"data_set_",DATA_SET_ID,"__method_set_",METHOD_SET_ID,"_result.csv", sep="" )
 write.table(out_df, file = filename, row.names = F)
