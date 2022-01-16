@@ -93,6 +93,28 @@ data_set_list[["Sex"]] <- list( data_set_name = "Sex", g1 = g1, g2 = g2, locs = 
 
 
 
+####   KAT6A
+idats_dir<-"/home/leroy/Desktop/STABLE_DATA/KAT6A_DNA_methylation_data/idat_KAT6A_and_control"
+idats_files<-list.files(path=idats_dir, pattern = "*.idat")
+phen <- read.metharray.sheet("/home/leroy/Desktop/STABLE_DATA/KAT6A_DNA_methylation_data/", pattern = "Formatted", verbose = TRUE)
+phen$Basename<-paste(phen$Slide, "_", phen$Array, sep = "")  
+#Extract only KAT6A patients and Controls for analysis
+phen <- phen[c(grep("^CONTROL",phen$Sample_Name),grep("^KAT6",phen$Sample_Name)),]
+phen <- phen[-grep("-2", phen$Sample_Name),] ## remove technical replicates
+
+targets <- data.frame("Basename"= phen$Basename)
+RGSet <- read.metharray.exp(base = idats_dir, targets = targets)
+GRset.funnorm <- preprocessFunnorm(RGSet);rm(RGSet)
+snps <- getSnpInfo(object = GRset.funnorm)
+GRset.funnorm <- dropLociWithSnps(GRset.funnorm, snps=c("SBE", "CpG"), maf=0);rm(snps)
+g1 <- phen$Basename[grep("Control", phen$Sample_Name, ignore.case = T)]
+g2 <- phen$Basename[grep("KAT6A", phen$Sample_Name, ignore.case = T)]
+locs <- getLocations(GRset.funnorm)
+locs <- data.frame("names"=locs@ranges@NAMES, "pos"=locs@ranges@start, "chr" = rep(locs@seqnames@values, locs@seqnames@lengths))
+B <- getBeta(GRset.funnorm)
+
+data_set_list[["KAT6A"]] <- list( data_set_name = "KAT6A", g1 = g1, g2 = g2, locs = locs, B = B,
+                                g1g2_labels = data.frame(g1="Control",g2="KAT6A")) 
 
 
 
@@ -120,10 +142,10 @@ method_set_list <- list(
 ## write Rdata objects to load into each real_data_individual_run.R script
 filename <- paste("real_data_setup.Rdata")
 save.image(file=filename)
-## write dataset_table
-dataset_table <- names(dataset_list)
-filename <- paste("dataset_table.csv")
-write.table(dataset_table, filename, row.names = F, col.names=F, sep=",")
+## write data_set_table
+data_set_table <- names(data_set_list)
+filename <- paste("data_set_table.csv")
+write.table(data_set_table, filename, row.names = F, col.names=F, sep=",")
 
 ## write method_table
 method_table <- names(method_set_list)

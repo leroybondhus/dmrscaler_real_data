@@ -27,7 +27,7 @@ METHOD_SET_ID <- as.numeric(args[2])
 # write.table(TEST, filename, row.names = F)
 
 
-dataset_list <- datasets_list[[DATASET_ID]]
+data_set <- data_set_list[[DATASET_ID]]
 dataset_name <- names(datasets_list)[DATASET_ID]
 
 method_set <- method_set_list[[METHOD_SET_ID]]
@@ -36,10 +36,10 @@ method_set_name <- names(method_set_list)[METHOD_SET_ID]
 
 
 ### Start: Set up dataset ####
-g12 <- c(dataset_list$g1,dataset_list$g2)
-g1 <- dataset_list$g1
-g2 <- dataset_list$g2
-B <- dataset_list$B
+g12 <- c(data_set$g1,data_set$g2)
+g1 <- data_set$g1
+g2 <- data_set$g2
+B <- data_set$B
 
 ### End: Set up dataset ####
 
