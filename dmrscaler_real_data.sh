@@ -5,7 +5,7 @@
 #$ -o joblog.$JOB_ID.$TASK_ID
 #$ -j y
 ## Edit the line below as needed:
-#$ -l highp,h_rt=2:00:00,h_data=6G
+#$ -l h_rt=24:00:00,h_data=8G,exclusive
 ## Modify the parallel environment
 ## and the number of cores as needed:
 # Email address to notify
@@ -16,8 +16,8 @@
 
 NUM_DATA_SETS=`wc -l < data_set_table.csv`
 NUM_METHOD_SETS=`wc -l < method_table.csv`
-UPPER_LIM=$(expr $NUM_SIMUL_SETS \* $NUM_METHOD_SETS )
-#$ -t 1-${UPPER_LIM}:1
+UPPER_LIM=$(expr $NUM_DATA_SETS \* $NUM_METHOD_SETS )
+#$ -t 1-32:1
 
 
 # echo job info on joblog:
@@ -35,7 +35,7 @@ DATA_SET_ID=$(expr 1+ $(expr $SGE_TASK_ID % $NUM_DATA_SETS ))
 METHOD_SET_ID=$(expr 1 + $(expr $SGE_TASK_ID / $NUM_DATA_SETS ))
 
 
-Rscript real_data_individual_run.R $SIMUL_SET_ID $METHOD_SET_ID
+Rscript real_data_individual_run.R $DATA_SET_ID $METHOD_SET_ID
 
 
 # echo job info on joblog:
