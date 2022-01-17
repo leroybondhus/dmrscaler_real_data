@@ -56,7 +56,7 @@ locs <- data.frame("names"=locs@ranges@NAMES, "pos"=locs@ranges@start, "chr" = r
 B <- getBeta(GRset.funnorm)
 
 data_set_list[["Sotos"]] <- list( data_set_name = "Sotos", g1 = g1, g2 = g2, locs = locs, B = B,
-                                  g1g2_labels = data.frame(g1="Control",g2="Sotos")) 
+                                  g1g2_labels = data.frame(g1="Control",g2="Sotos"))
 
 ####   Weaver
 phen_subset <- phen[union(grep("Weaver", phen$`disease state:ch1`),
@@ -89,7 +89,7 @@ locs <- data.frame("names"=locs@ranges@NAMES, "pos"=locs@ranges@start, "chr" = r
 B <- getBeta(GRset.funnorm)
 
 data_set_list[["Sex"]] <- list( data_set_name = "Sex", g1 = g1, g2 = g2, locs = locs, B = B,
-                                   g1g2_labels = data.frame(g1="Female",g2="Male")) 
+                                   g1g2_labels = data.frame(g1="Female",g2="Male"))
 
 
 
@@ -97,7 +97,7 @@ data_set_list[["Sex"]] <- list( data_set_name = "Sex", g1 = g1, g2 = g2, locs = 
 idats_dir<-"/home/leroy/Desktop/STABLE_DATA/KAT6A_DNA_methylation_data/idat_KAT6A_and_control"
 idats_files<-list.files(path=idats_dir, pattern = "*.idat")
 phen <- read.metharray.sheet("/home/leroy/Desktop/STABLE_DATA/KAT6A_DNA_methylation_data/", pattern = "Formatted", verbose = TRUE)
-phen$Basename<-paste(phen$Slide, "_", phen$Array, sep = "")  
+phen$Basename<-paste(phen$Slide, "_", phen$Array, sep = "")
 #Extract only KAT6A patients and Controls for analysis
 phen <- phen[c(grep("^CONTROL",phen$Sample_Name),grep("^KAT6",phen$Sample_Name)),]
 phen <- phen[-grep("-2", phen$Sample_Name),] ## remove technical replicates
@@ -114,7 +114,7 @@ locs <- data.frame("names"=locs@ranges@NAMES, "pos"=locs@ranges@start, "chr" = r
 B <- getBeta(GRset.funnorm)
 
 data_set_list[["KAT6A"]] <- list( data_set_name = "KAT6A", g1 = g1, g2 = g2, locs = locs, B = B,
-                                g1g2_labels = data.frame(g1="Control",g2="KAT6A")) 
+                                g1g2_labels = data.frame(g1="Control",g2="KAT6A"))
 
 
 
@@ -125,9 +125,9 @@ method_set_list <- list(
   dmrscaler_2 = list(method="dmrscaler",
                      function_call=" DMRscaler::dmrscaler(locs = locs, locs_pval_cutoff = 0.01, region_signif_method = \"ben\", region_signif_cutoff = 0.01, window_type = \"k_near\", window_sizes = c(2,4,8,16,32,64), output_type = \"comp\") " ),
   bumphunter_1 = list(method="bumphunter",
-                      function_call="bumphunter(B_mod,as.matrix(design),chr = locs$chr, pos=locs$pos, cutoff=0.1, maxGap=1e3, B=250, smoothFunction=loessByCluster )"),
+                      function_call="bumphunter(B,as.matrix(design),chr = locs$chr, pos=locs$pos, cutoff=0.1, maxGap=1e3, B=250, smoothFunction=loessByCluster )"),
   bumphunter_2 = list(method="bumphunter",
-                      function_call="bumphunter(B_mod,as.matrix(design),chr = locs$chr, pos=locs$pos, cutoff=0.1, maxGap=1e6, B=250, smoothFunction=loessByCluster )"),
+                      function_call="bumphunter(B,as.matrix(design),chr = locs$chr, pos=locs$pos, cutoff=0.1, maxGap=1e6, B=250, smoothFunction=loessByCluster )"),
   dmrcate_1 = list(method="dmrcate",
                    function_call="dmrcate(myannotation, lambda=1e3, C=2)"),
   dmrcate_2 = list(method="dmrcate",

@@ -40,7 +40,7 @@ g12 <- c(data_set$g1,data_set$g2)
 g1 <- data_set$g1
 g2 <- data_set$g2
 B <- data_set$B
-
+locs <- data_set$locs
 ### End: Set up dataset ####
 
 
@@ -54,15 +54,20 @@ if(grepl("dmrscaler", method_name, ignore.case = TRUE)){
   design[which(is.element(colnames(B),g1))] <- 1
   design <- cbind(rep(1,length(colnames(B) ) ), design )
   colnames(design) <- c("(Intercept)","(Intercept)")
-  
+
 } else if(grepl("dmrcate", method_name, ignore.case = TRUE)){
   design <- rep(-1,length(colnames(B)))
   design[which(is.element(colnames(B),g1))] <- 1
   design <- cbind(rep(1,length(colnames(B) ) ), design )
   colnames(design)<- c("(Intercept)","(Intercept)")
   M <- log2(B / (1-(B)) )
-  myannotation <- cpg.annotate("array", object=M, what="M", arraytype = "450K", analysis.type = "differential", design = design,  coef = 2)
-  
+  if(nrow(locs) < 500e3){
+    myannotation <- cpg.annotate("array", object=M, what="M", arraytype = "450K", analysis.type = "differential", design = design,  coef = 2)
+  } else {
+    myannotation <- cpg.annotate("array", object=M, what="M", arraytype = "EPIC", analysis.type = "differential", design = design,  coef = 2)
+  }
+
+
 } else if(grepl("comb", method_name, ignore.case = TRUE)){
   mwr <- DMRscaler::run_MWW(g1,g2,B)
   locs$pval <- mwr$p_val
@@ -74,11 +79,11 @@ if(grepl("dmrscaler", method_name, ignore.case = TRUE)){
   filename <- paste(combp_temp_file_prefix,"_input.bed",sep="")
   data.table::fwrite(combp_input_bed, file = filename, row.names = F,col.names = T, sep = "\t")
   combp_out_filename <- paste(combp_temp_file_prefix,".regions-t.bed",sep="")
-  
+
   method_set$function_call <-  paste(method_set$function_call,
                                      combp_temp_file_prefix,
                                      filename, "\")",  sep=" " )
-  
+
 } else {
   stop("method_name not found")
 }
@@ -99,12 +104,12 @@ if(grepl("dmrscaler", method_name, ignore.case = TRUE)){
       out_df <- rbind(out_df, data.frame(method_set_result[[i]],layer=names(method_set_result)[i] ))
     }
   }
-  
+
 } else if(grepl("bumphunter", method_name, ignore.case = TRUE)){
   out_df <- method_set_result$table
   colnames(out_df)[which(colnames(out_df)=="end")] <- "stop"
   colnames(out_df)[which(colnames(out_df)=="p.value")] <- "pval_region"
-  
+
 } else if(grepl("dmrcate", method_name, ignore.case = TRUE)){
   out_df <- data.frame(coord=method_set_result@coord,
                        stouffer=method_set_result@Stouffer,
@@ -114,7 +119,7 @@ if(grepl("dmrscaler", method_name, ignore.case = TRUE)){
   out_df$start <- stringr::str_split_fixed(stringr::str_split_fixed(out_df$coord,":",2)[,2],"-",2)[,1]
   out_df$stop <- stringr::str_split_fixed(stringr::str_split_fixed(out_df$coord,":",2)[,2],"-",2)[,2]
   out_df$pval_region <- out_df$stouffer
-  
+
 } else if(grepl("comb", method_name, ignore.case = TRUE)){
   out_df <- data.table::fread(combp_out_filename)
   colnames(out_df)[which(colnames(out_df)=="end")] <- "stop"
@@ -122,7 +127,7 @@ if(grepl("dmrscaler", method_name, ignore.case = TRUE)){
   colnames(out_df)[which(colnames(out_df)=="z_p")] <- "pval_region"
   ## add line removing combp intermediary files
   system(paste("rm ", paste(combp_temp_file_prefix,"*",sep = "") ))
-  
+
 } else {
   stop("method_name not found")
 }
