@@ -1,0 +1,32 @@
+---
+title: "real_data_results_analysis"
+output: html_document
+---
+
+
+```{r }
+load("method_set_list.Rdata")
+load("data_set_list.Rdata")
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+```{r}
+
+```
+
+
