@@ -4,13 +4,61 @@ output: html_document
 ---
 
 
+```{r}
+library(IRanges)
+library(GenomicRanges)
+library(data.table)
+library(stringr)
+library(foreach)
+library(doParallel)
+registerDoParallel(detectCores())
+```
+
+
 ```{r }
 load("method_set_list.Rdata")
 load("data_set_list.Rdata")
+
 ```
 
-```{r}
+```{r add granges for called dmrs}
+filenames <- list.files(path = "./results/real_dataset_results/", pattern = "*result.csv", full.names = T)
 
+
+data_set_results <- list()
+
+for(data_set_id in 1:length(data_set_list)){
+  for(method_id in 1:length(method_set_list)){
+    filename <- filenames[grep(paste("data_set_",data_set_id,
+                                     "__method_set_",method_id,
+                                     sep=""), filenames)]
+    result <- fread(filename)
+    # if(method_set_list[[method_id]]$method=="dmrscaler"){
+    #   result <- result[grep("64",result$layer),]
+    # }
+    
+    locs <- data_set_list[[data_set_id]]$locs
+    chr_seqlengths <- numeric(length=length(unique(locs$chr)))
+    names(chr_seqlengths) <- unique(locs$chr)
+    for(chr in unique(locs$chr)){
+      chr_seqlengths[chr] <- max(locs$pos[which(locs$chr==chr)])+1
+    }
+    chr_seqinfo <- Seqinfo(names(chr_seqlengths), seqlengths = chr_seqlengths)
+    
+    data_set_results[[basename(filename)]]$grange <- GRanges(
+      seqnames = result$chr,
+      ranges = IRanges(start = result$start,
+                       end = result$stop,
+                       pval_region = result$pval_region),
+      strand = rep("*",nrow(result)),
+      seqinfo = chr_seqinfo
+    )
+    ### need to set a cutoff to region p-value for TP,FP, FN, etc
+    which <- which(data_set_results[[basename(filename)]]$grange$pval_region < 0.05)
+    data_set_results[[basename(filename)]]$grange <- data_set_results[[basename(filename)]]$grange[which]
+    data_set_results[[basename(filename)]]$locs_grs <- GRanges(seqnames=locs$chr, ranges = IRanges(start=locs$pos, width=1))
+  }
+}
 ```
 
 ```{r}
