@@ -135,7 +135,7 @@ method_set_list <- list(
   combp_1 = list(method="combp",
                  function_call="system(\"comb-p pipeline -c 4 --dist 1000 --step 100 --seed 1e-3 --region-filter-p 0.1 -p " ),
   combp_2 = list(method="combp",
-                 function_call="system(\"comb-p pipeline -c 4 --dist 1000000 --step 5000 --seed 1e-3 --region-filter-p 0.1 -p " )
+                 function_call="system(\"comb-p pipeline -c 4 --dist 1000000 --step 5000 --seed 1e-3 --region-filter-p 0.1 -p " ),
   combp_3 = list(method="combp",
                  function_call="system(\"comb-p pipeline -c 4 --dist 1000000 --step 100000 --seed 1e-3 --region-filter-p 0.1 -p " )
 )
