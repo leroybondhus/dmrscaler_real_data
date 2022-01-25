@@ -68,8 +68,9 @@ for(data_set_id in 1:length(data_set_list)){
     data_set_results[[basename(filename)]]$grange <- data_set_results[[basename(filename)]]$grange[which]
     
     data_set_results[[basename(filename)]]$locs_grs <- GRanges(seqnames=locs$chr, ranges = IRanges(start=locs$pos, width=1))
-    data_set_results[[basename(filename)]]$method <- names(method_set_list)[method_id]
-    data_set_results[[basename(filename)]]$data_set <- data_set_list[[data_set_id]]$z
+    data_set_results[[basename(filename)]]$method <- method_set_list[[method_id]]$method
+    data_set_results[[basename(filename)]]$method_id <- names(method_set_list)[method_id]
+    data_set_results[[basename(filename)]]$data_set <- data_set_list[[data_set_id]]$data_set_name
     
     
   }
@@ -93,7 +94,7 @@ for(data_set_id in 1:length(data_set_list)){
 ```
 
 
-```{r make pretty table}
+```{r make XY sex analysis results table}
 
 library("gt")
 
@@ -113,7 +114,7 @@ result_set_ids <- grep(paste("data_set_", data_set_id, sep = ""), names(data_set
 for(rs_index in result_set_ids){
   result_set <- data_set_results[[rs_index]] 
   if(grepl("dmrscaler", result_set$method)){
-    if(grepl("_1", result_set$method)){
+    if(grepl("_1", result_set$method_id)){
       for(l in 1:length(unique(result_set$grange$layer))){
         which_x <- which(result_set$grange@seqnames=="chrX" &
                            result_set$grange$layer == unique(result_set$grange$layer)[l])
@@ -151,90 +152,11 @@ for(rs_index in result_set_ids){
                                       "autosome_percent_total_width" = sum(width(result_set$grange[which_not_x,])) / 
                                         sum(seqlengths(result_set$grange)[!grepl("[XY]",names(seqlengths(result_set$grange)))])
                      ))
-    rownames(results_table)[nrow(results_table)] <- result_set$method
+    rownames(results_table)[nrow(results_table)] <- result_set$method_id
   }
-  
-  
+
 }
 
-
-
-data.frame("method" = result_set$method,
-                                          "chrX_num_dmrs" = length(which_x),
-                                          "chrX_mean_width" = mean(width(result_set$grange[which_x,])),
-                                          "chrX_median_width" = median(width(result_set$grange[which_x,])), 
-                                          "chrX_percent_total_width" = sum(width(result_set$grange[which_x,])) / 
-                                            seqlengths(result_set$grange)["chrX"],
-                                          "autosome_num_dmrs" = length(which_not_x),
-                                          "autosome_mean_width" = mean(width(result_set$grange[which_not_x,])),
-                         )
-
-
-
-
-
-
-for( i in 1:length(built_layers)){
-  which <- which(built_layers[[i]]$chr == "chrX")
-  which_not <- which(built_layers[[i]]$chr != "chrX" & built_layers[[i]]$chr != "chrY")
-  results_table <- rbind(results_table,
-                         data.frame("method" = "dmrscaler", 
-                         "chrX_num_dmrs" = nrow(built_layers[[i]][which,]),
-                         "chrX_mean_width" = mean(built_layers[[i]]$stop_pos[which]-built_layers[[i]]$start_pos[which]),
-                         "chrX_median_width"= median(built_layers[[i]]$stop_pos[which]-built_layers[[i]]$start_pos[which]),                         
-                         "chrX_percent_total_width" = -1,  # add later
-                         "autosome_num_dmrs" = nrow(built_layers[[i]][which_not,]),
-                         "autosome_mean_width" = mean(built_layers[[i]]$stop_pos[which_not]-built_layers[[i]]$start_pos[which_not]),
-                         "autosome_median_width"= median(built_layers[[i]]$stop_pos[which_not]-built_layers[[i]]$start_pos[which_not]),                            
-                         "autosome_percent_total_width" = -1 # add late
-                         ))
-  rownames(results_table)[i] <- paste("layer ",i,": ",layer_sizes[i] ," adjacent CpGs", sep = "")
-}
-
-### Add bumphunter results to table
-
-which <- which(bumps_default$table$chr == "chrX")
-which_not <- which(bumps_default$table$chr != "chrX" & bumps_default$table$chr != "chrY")
-results_table <- rbind(results_table,
-                         data.frame("method" = "bumphunter", 
-                         "chrX_num_dmrs" = nrow(bumps_default$table[which,]),
-                         "chrX_mean_width" = mean(bumps_default$table$end[which]-bumps_default$table$start[which]),
-                         "chrX_median_width"= median(bumps_default$table$end[which]-bumps_default$table$start[which]),                         
-                         "chrX_percent_total_width" = -1,  # add later
-                         "autosome_num_dmrs" = nrow(bumps_default$table[which_not,]),
-                         "autosome_mean_width" = mean(bumps_default$table$end[which_not]-bumps_default$table$start[which_not]),
-                         "autosome_median_width"= median(bumps_default$table$end[which_not]-bumps_default$table$start[which_not]),                            
-                         "autosome_percent_total_width" = -1 # add late
-                         ))
-rownames(results_table)[length(rownames(results_table))] <- "default: maxGap = 500 bp"
-
-which <- which(bumps_1Mb$table$chr == "chrX")
-which_not <- which(bumps_1Mb$table$chr != "chrX" & bumps_1Mb$table$chr != "chrY")
-results_table <- rbind(results_table,
-                         data.frame("method" = "bumphunter", 
-                         "chrX_num_dmrs" = nrow(bumps_1Mb$table[which,]),
-                         "chrX_mean_width" = mean(bumps_1Mb$table$end[which]-bumps_1Mb$table$start[which]),
-                         "chrX_median_width"= median(bumps_1Mb$table$end[which]-bumps_1Mb$table$start[which]),                         
-                         "chrX_percent_total_width" = -1,  # add later
-                         "autosome_num_dmrs" = nrow(bumps_1Mb$table[which_not,]),
-                         "autosome_mean_width" = mean(bumps_1Mb$table$end[which_not]-bumps_1Mb$table$start[which_not]),
-                         "autosome_median_width"= median(bumps_1Mb$table$end[which_not]-bumps_1Mb$table$start[which_not]),                            
-                         "autosome_percent_total_width" = -1 # add late
-                         ))
-rownames(results_table)[length(rownames(results_table))] <- "maxGap = 1 Mb"
-
-
-
-
-chrXsize <- max(locs$pos[which(locs$chr=="chrX")])
-autosome_size <- 0
-for(i in 1:22){
-  chr <- paste("chr",i,sep = "")
-  autosome_size <- autosome_size + max(locs$pos[which(locs$chr==chr)])
-}
-results_table$chrX_percent_total_width <- results_table$chrX_mean_width * results_table$chrX_num_dmrs / chrXsize
-
-results_table$autosome_percent_total_width <- results_table$autosome_mean_width * results_table$autosome_num_dmrs / autosome_size
 
 results_table$method_params <- rownames(results_table)
 
@@ -253,43 +175,43 @@ clean_results_table <- cols_label(clean_results_table,
                                   autosome_median_width = html(" median\n<br>DMR width "), autosome_percent_total_width = html(" % total\n<br>width " ))
 
 
-clean_results_table <- fmt_number(clean_results_table, columns = vars(chrX_percent_total_width, autosome_percent_total_width),
+clean_results_table <- fmt_number(clean_results_table, columns = c(chrX_percent_total_width, autosome_percent_total_width),
                                   n_sigfig = 2, scale_by = 100, pattern = "{x}%")
 
-clean_results_table <- fmt_number(clean_results_table, columns = vars(autosome_mean_width),
+clean_results_table <- fmt_number(clean_results_table, columns = c(autosome_mean_width),
                                   rows = (autosome_mean_width > 1000) & (autosome_mean_width < 1e6),
                                   decimals = 2, scale_by = 1/1000, pattern = "{x} kb")
-clean_results_table <- fmt_number(clean_results_table, columns = vars(autosome_mean_width),
+clean_results_table <- fmt_number(clean_results_table, columns = c(autosome_mean_width),
                                   rows = (autosome_mean_width <= 1000),
                                   decimals = 0, pattern = "{x} bp")
 
-clean_results_table <- fmt_number(clean_results_table, columns = vars(chrX_mean_width),
+clean_results_table <- fmt_number(clean_results_table, columns = c(chrX_mean_width),
                                   rows = (chrX_mean_width >= 1e6),
                                   decimals = 2, scale_by = 1/1e6, pattern = "{x} Mb")
-clean_results_table <- fmt_number(clean_results_table, columns = vars(chrX_mean_width),
+clean_results_table <- fmt_number(clean_results_table, columns = c(chrX_mean_width),
                                   rows = (chrX_mean_width > 1000) & (chrX_mean_width < 1e6),
                                   decimals = 2, scale_by = 1/1000, pattern = "{x} kb")
-clean_results_table <- fmt_number(clean_results_table, columns = vars(chrX_mean_width),
+clean_results_table <- fmt_number(clean_results_table, columns = c(chrX_mean_width),
                                   rows = (chrX_mean_width <= 1000),
                                   decimals = 0, pattern = "{x} bp")
 
-clean_results_table <- fmt_number(clean_results_table, columns = vars(chrX_median_width),
+clean_results_table <- fmt_number(clean_results_table, columns = c(chrX_median_width),
                                   rows = (chrX_median_width >= 1e6),
                                   decimals = 2, scale_by = 1/1e6, pattern = "{x} Mb")
-clean_results_table <- fmt_number(clean_results_table, columns = vars(chrX_median_width),
+clean_results_table <- fmt_number(clean_results_table, columns = c(chrX_median_width),
                                   rows = (chrX_median_width > 1000) & (chrX_median_width < 1e6),
                                   decimals = 2, scale_by = 1/1000, pattern = "{x} kb")
-clean_results_table <- fmt_number(clean_results_table, columns = vars(chrX_median_width),
+clean_results_table <- fmt_number(clean_results_table, columns = c(chrX_median_width),
                                   rows = (chrX_median_width <= 1000),
                                   decimals = 0, pattern = "{x} bp")
 
-clean_results_table <- fmt_number(clean_results_table, columns = vars(autosome_median_width),
+clean_results_table <- fmt_number(clean_results_table, columns = c(autosome_median_width),
                                   rows = (autosome_median_width >= 1e6),
                                   decimals = 2, scale_by = 1/1e6, pattern = "{x} Mb")
-clean_results_table <- fmt_number(clean_results_table, columns = vars(autosome_median_width),
+clean_results_table <- fmt_number(clean_results_table, columns = c(autosome_median_width),
                                   rows = (autosome_median_width > 1000) & (autosome_median_width < 1e6),
                                   decimals = 2, scale_by = 1/1000, pattern = "{x} kb")
-clean_results_table <- fmt_number(clean_results_table, columns = vars(autosome_median_width),
+clean_results_table <- fmt_number(clean_results_table, columns = c(autosome_median_width),
                                   rows = (autosome_median_width <= 1000),
                                   decimals = 0, pattern = "{x} bp")
 
@@ -302,11 +224,110 @@ gtsave(clean_results_table, filename = paste(results_dir, "/Sex_Analysis_DMR_Sum
     rows = num <= 500,
     decimals = 1
   )
- fmt_number(
-    columns = vars(num),
-    rows = num > 500,
-    decimals = 1,
-    scale_by = 1/1000,
-    pattern = "{x}K"
-  )
+
 ```
+
+```{r make XY analysis circos network plot}
+
+library(networkD3)
+library(rjson)
+
+data_set_id <- grep("Sex", names(data_set_list))
+result_set_ids <- grep(paste("data_set_", data_set_id, sep = ""), names(data_set_results))
+method_set_id <- grep("dmrscaler_1", names(method_set_list))
+method_set_ids <- grep(paste("method_set_", method_set_id, sep = ""), names(data_set_results))
+result_set <- data_set_results[[ intersect(result_set_ids, method_set_ids ) ]] 
+
+
+
+full_node_set <- list()
+for(j in 1:length(unique(result_set$grange$layer))){
+  #which <- which(built_layers[[j]]$chr =="chrX")
+  #which <- 1:length(built_layers[[j]]$chr)
+  gr_nodes <- list()
+  which <- which(result_set$grange$layer == unique(result_set$grange$layer)[j]) 
+  for(i in 1:length(which)){
+    temp_name <- paste(as.character(seqnames(result_set$grange[ which[i],])), start(result_set$grange[which[i],]), end(result_set$grange[which[i],]), sep = "_")
+   # temp_name <- paste(format(start(x_base[i,]),big.mark=","), format(end(x_base[i,]),big.mark=","), sep = " - ")
+    temp_child <- list("name"= temp_name, "alt_name"= temp_name, "grange"=result_set$grange[which[i],], "children"=list() )
+    gr_nodes[[i]] <-  list("name"= temp_name, "alt_name"= temp_name, "grange"=result_set$grange[which[i],], "children"=list())
+  }
+  full_node_set[[j]]<-gr_nodes
+}
+
+temp_full_node_set <- full_node_set
+#full_node_set <- temp_full_node_set
+
+for(j in 2:length(full_node_set)){
+  print(j)
+  
+  lower <- full_node_set[[j-1]]
+  upper <- full_node_set[[j]]
+  
+  lower_gr <- lower[[1]]$grange
+  for(i in 2:length(lower)){
+    lower_gr <- c(lower_gr, lower[[i]]$grange)
+  }
+  upper_gr <- upper[[1]]$grange
+  if(length(upper) >= 2){
+    for(i in 2:length(upper)){
+      upper_gr <- c(upper_gr, upper[[i]]$grange)
+    }
+  }
+  
+  hits <- GenomicRanges::findOverlaps(lower_gr,upper_gr,type = "within");hits
+  for( i in 1:length(hits@from)){
+    upper[[ hits@to[i] ]]$children <- c(upper[[ hits@to[i] ]]$children, list(lower[[ hits@from[i] ]]))
+    if(upper[[ hits@to[i] ]]$name == lower[[ hits@from[i] ]]$name |
+       upper[[ hits@to[i] ]]$alt_name == lower[[ hits@from[i] ]]$name  |
+       upper[[ hits@to[i] ]]$name == lower[[ hits@from[i] ]]$alt_name
+       ){  ### avoid redundant child-parent pairs
+      upper[[ hits@to[i] ]]$name <- "..."
+    }
+  }
+  full_node_set[[j]]<-upper
+}
+
+#dmr_tree <- full_node_set[[3]][[1]]
+#dmr_tree <- list("name"="root","children"=full_node_set[[3]])
+dmr_tree <- list("name"="root","children"=full_node_set[[length(full_node_set)]])
+
+dmr_tree_clean <- list()
+
+node <- dmr_tree
+
+
+
+strip_grs <- function(node){
+  node <- list("name" = node$name, "children" = node$children)
+  if(length(node$children)==0){return(node)}
+  for(i in 1:length(node$children)){
+    node$children[[i]]<-strip_grs(node$children[[i]])
+  }
+  return(node)
+}
+dmr_tree_clean <- strip_grs(dmr_tree)
+
+
+library("webshot") ###  library to fix an obnoxious problem
+
+temp <- radialNetwork(List = dmr_tree_clean, fontSize = 16, fontFamily = "bold", nodeStroke = "black", linkColour = "grey60", opacity = 1, margin=0, height = 1600, width = 1600)
+saveNetwork(temp,paste("All_chrom_dmrs_radialNetwork.html",sep = "") ,
+            selfcontained = T)
+webshot(paste("All_chrom_dmrs_radialNetwork.html",sep = ""),
+        paste("All_all_layer_chrom_dmrs_radialNetwork.png",sep = ""),
+        zoom = 2)
+
+
+temp <- diagonalNetwork(List = dmr_tree_clean[[2]][[1]], fontSize = 12, fontFamily = "bold", nodeStroke = "black", linkColour = "black", opacity = 1,  margin=0, height = 400, width = 150)
+saveNetwork(temp,paste(figures_dir, "FINAL_X2_chrom_dmrs_diagonalNetwork.html", sep="") , selfcontained = T )
+webshot(paste("FINAL_X2_chrom_dmrs_diagonalNetwork.html", sep=""),
+        paste("FINAL_X2_chrom_dmrs_diagonalNetwork.png", sep=""),
+        vheight = 400, vwidth = 150 , zoom =10 )
+
+
+```
+
+
+
+
