@@ -82,8 +82,8 @@ RGSet <- read.metharray.exp(base = idats_dir, targets = targets)
 GRset.funnorm <- preprocessFunnorm(RGSet);rm(RGSet)
 snps <- getSnpInfo(object = GRset.funnorm)
 GRset.funnorm <- dropLociWithSnps(GRset.funnorm, snps=c("SBE", "CpG"), maf=0);rm(snps)
-g1 <- phen_subset$col_names[grep("[Ff]emale", phen_subset$`gender:ch1`)]
-g2 <- phen_subset$col_names[grep("[Ff]emale", invert = T, phen_subset$`gender:ch1`)]
+g1 <- phen_subset$col_names[grep("[Ff]emale", phen_subset$`gender:ch1`)][1:8]
+g2 <- phen_subset$col_names[grep("[Ff]emale", invert = T, phen_subset$`gender:ch1`)][1:8]
 locs <- getLocations(GRset.funnorm)
 locs <- data.frame("names"=locs@ranges@NAMES, "pos"=locs@ranges@start, "chr" = rep(locs@seqnames@values, locs@seqnames@lengths))
 B <- getBeta(GRset.funnorm)

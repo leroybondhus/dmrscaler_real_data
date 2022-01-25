@@ -132,14 +132,26 @@ for(rs_index in result_set_ids){
                                           "autosome_percent_total_width" = sum(width(result_set$grange[which_not_x,])) / 
                                             sum(seqlengths(result_set$grange)[!grepl("[XY]",names(seqlengths(result_set$grange)))])
                          ))
-        rownames(results_table)[nrow(results_table)] <- unique(result_set$grange$layer)[l]
-        
+        rownames(results_table)[nrow(results_table)] <- unique(result_set$grange$layer)[l] 
       }
-      
-      
     }
   }else{
-    
+    which_x <- which(result_set$grange@seqnames=="chrX")
+    which_not_x <- which(result_set$grange@seqnames != "chrX" & result_set$grange@seqnames != "chrY")
+    results_table <- rbind(results_table,
+                           data.frame("method" = result_set$method,
+                                      "chrX_num_dmrs" = length(which_x),
+                                      "chrX_mean_width" = mean(width(result_set$grange[which_x,])),
+                                      "chrX_median_width" = median(width(result_set$grange[which_x,])), 
+                                      "chrX_percent_total_width" = sum(width(result_set$grange[which_x,])) / 
+                                        seqlengths(result_set$grange)["chrX"],
+                                      "autosome_num_dmrs" = length(which_not_x),
+                                      "autosome_mean_width" = mean(width(result_set$grange[which_not_x,])),
+                                      "autosome_median_width"=median(width(result_set$grange[which_not_x,])),
+                                      "autosome_percent_total_width" = sum(width(result_set$grange[which_not_x,])) / 
+                                        sum(seqlengths(result_set$grange)[!grepl("[XY]",names(seqlengths(result_set$grange)))])
+                     ))
+    rownames(results_table)[nrow(results_table)] <- result_set$method
   }
   
   
