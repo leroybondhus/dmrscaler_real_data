@@ -27,7 +27,7 @@ phen$col_names <- stringr::str_split_fixed(basename(phen$supplementary_file), "_
 rm(gse)
 
 ## get methylation data as idat files (NOTE: this saves files locally in working directory, unpacked size is 2.01 Gb
-if(length(list.files("GSE74432/idat", pattern = "idat$"))==0){
+if(length(list.files("../dmrscaler_simulation/GSE74432/idat", pattern = "idat$"))==0){
   getGEOSuppFiles("GSE74432")
   untar("GSE74432/GSE74432_RAW.tar", exdir = "GSE74432/idat")
   file.remove("GSE74432/GSE74432_RAW.tar")
@@ -39,7 +39,7 @@ if(length(list.files("GSE74432/idat", pattern = "idat$"))==0){
 library("minfi")
 
 ###  Reading of idat files done with minfi library ###
-idats_dir<-"GSE74432/idat"
+idats_dir<-"../dmrscaler_simulation/GSE74432/idat"
 
 ####   Sotos
 phen_subset <- phen[union(grep("Sotos", phen$`disease state:ch1`),
@@ -94,9 +94,9 @@ data_set_list[["Sex"]] <- list( data_set_name = "Sex", g1 = g1, g2 = g2, locs = 
 
 
 ####   KAT6A
-idats_dir<-"/home/leroy/Desktop/STABLE_DATA/KAT6A_DNA_methylation_data/idat_KAT6A_and_control"
+idats_dir<-"/u/project/arboleda/DATA/DNAme_Array/KAT6A_DNA_methylation_data/idat_KAT6A_and_control"
 idats_files<-list.files(path=idats_dir, pattern = "*.idat")
-phen <- read.metharray.sheet("/home/leroy/Desktop/STABLE_DATA/KAT6A_DNA_methylation_data/", pattern = "Formatted", verbose = TRUE)
+phen <- read.metharray.sheet("/u/project/arboleda/DATA/DNAme_Array/KAT6A_DNA_methylation_data/", pattern = "Formatted", verbose = TRUE)
 phen$Basename<-paste(phen$Slide, "_", phen$Array, sep = "")
 #Extract only KAT6A patients and Controls for analysis
 phen <- phen[c(grep("^CONTROL",phen$Sample_Name),grep("^KAT6",phen$Sample_Name)),]
@@ -135,7 +135,9 @@ method_set_list <- list(
   combp_1 = list(method="combp",
                  function_call="system(\"comb-p pipeline -c 4 --dist 1000 --step 100 --seed 1e-3 --region-filter-p 0.1 -p " ),
   combp_2 = list(method="combp",
-                 function_call="system(\"comb-p pipeline -c 4 --dist 10000 --step 5000 --seed 1e-3 --region-filter-p 0.1 -p " )
+                 function_call="system(\"comb-p pipeline -c 4 --dist 1000000 --step 5000 --seed 1e-3 --region-filter-p 0.1 -p " )
+  combp_3 = list(method="combp",
+                 function_call="system(\"comb-p pipeline -c 4 --dist 1000000 --step 100000 --seed 1e-3 --region-filter-p 0.1 -p " )
 )
 
 
