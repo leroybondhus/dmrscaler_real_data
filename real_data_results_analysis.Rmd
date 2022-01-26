@@ -13,6 +13,7 @@ library(foreach)
 library(doParallel)
 registerDoParallel(detectCores())
 library(Gviz)
+library(ggplot2)
 ```
 
 
@@ -20,6 +21,15 @@ library(Gviz)
 load("method_set_list.Rdata")
 load("data_set_list.Rdata")
 
+```
+
+```{r add significance values to data_set_lists}
+# for(i in 1:length(data_set_list)){
+#   data_set <- data_set_list[[i]]
+#   temp <- DMRscaler::run_MWW(data_set$g1, data_set$g2, data_set$B)
+#   data_set_list[[i]]$locs$pval <- temp$p_val
+# }
+# save(data_set_list, file="data_set_list.Rdata")
 ```
 
 ```{r check method_set parameters }
@@ -78,12 +88,109 @@ for(data_set_id in 1:length(data_set_list)){
 }
 ```
 
-```{r add significance values to data_set_lists}
-for(i in 1:length(data_set_list)){
-  data_set <- data_set_list[[i]]
-  temp <- DMRscaler::run_MWW(data_set$g1, data_set$g2, data_set$B)
-  data_set_list[[i]]$locs$pval <- temp$p_val
+```{r write DMR width percentiles}
+library("stringr")
+
+quants_list <- list()
+quants <- data.frame(percentile = numeric(), value = numeric(), method = character(), pars = character(), chrs = character())
+ds_index <- grep("Sex", names(data_set_list))
+result_set_ids <- grep(paste("data_set_", ds_index, sep = ""), names(data_set_results))
+for(rs_index in result_set_ids){
+  result_set <- data_set_results[[rs_index]] 
+  if(grepl("dmrscaler", result_set$method)){
+    if(grepl("_1", result_set$method_id)){
+      for(l in 1:length(unique(result_set$grange$layer))){
+          which <- which(seqnames(result_set$grange) == "chrX" &
+                           result_set$grange$layer==unique(result_set$grange$layer)[l])
+          temp <- quantile(log10(end(result_set$grange[which]) - start(result_set$grange[which])), seq(0.01,1,by=0.01), type=1)
+          quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                             method = "dmrscaler",
+                                             pars = paste("dmrscaler",unique(result_set$grange$layer)[l]),
+                                             chrs="chrX"))
+          which <- which(seqnames(result_set$grange) != "chrX" & 
+                           seqnames(result_set$grange) != "chrY"  &
+                           result_set$grange$layer==unique(result_set$grange$layer)[l])
+          temp <- quantile(log10(end(result_set$grange[which]) - start(result_set$grange[which])), seq(0.01,1,by=0.01), type=1)
+          quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                             method = "dmrscaler",
+                                             pars =paste("dmrscaler",unique(result_set$grange$layer)[l]),
+                                             chrs="Autosome"))
+      }
+    }
+  } else {
+    which <- which(seqnames(result_set$grange) == "chrX")
+    temp <- quantile(log10(end(result_set$grange[which]) - start(result_set$grange[which])), seq(0.01,1,by=0.01), type=1)
+    quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                       method = result_set$method, pars = result_set$method_id,
+                                       chrs="chrX"))
+    which <- which(seqnames(result_set$grange) != "chrX" & seqnames(result_set$grange) != "chrY")
+    temp <- quantile(log10(end(result_set$grange[which]) - start(result_set$grange[which])), seq(0.01,1,by=0.01), type=1)
+    quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                       method = result_set$method, pars = result_set$method_id,
+                                       chrs="Autosome"))
+  }
 }
+quants_list[[ names(data_set_list)[ds_index] ]] <- quants
+
+
+data_set_ids <- grep("Sex", names(data_set_list), invert = T)
+for(ds_index in data_set_ids){
+  quants <- data.frame(percentile = numeric(), value = numeric(),
+                       method = character(), pars = character(), chrs = character())
+  result_set_ids <- grep(paste("data_set_", ds_index, sep = ""), names(data_set_results))
+  for(rs_index in result_set_ids){
+    result_set <- data_set_results[[rs_index]] 
+    if(grepl("dmrscaler", result_set$method)){
+      if(grepl("_1", result_set$method_id)){
+        for(l in 1:length(unique(result_set$grange$layer))){
+            which <- which(result_set$grange$layer==unique(result_set$grange$layer)[l])
+            temp <- quantile(log10(end(result_set$grange[which]) - start(result_set$grange[which])), seq(0.01,1,by=0.01), type=1)
+            quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                               method = "dmrscaler",
+                                               pars = paste("dmrscaler",unique(result_set$grange$layer)[l])))
+        }
+      }
+    } else {
+      temp <- quantile(log10(end(result_set$grange) - start(result_set$grange)), seq(0.01,1,by=0.01), type=1)
+      quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                         method = result_set$method, pars = result_set$method_id))
+    }
+  }
+  quants_list[[ names(data_set_list)[ds_index] ]] <- quants
+}
+
+
+for(i in 1:length(quants_list)){
+  quants <- quants_list[[i]]
+  gg<-ggplot(quants, aes(x=percentile, y=value, color=pars))+
+    geom_line()+
+    ylab("-log10(Width)")+
+    theme(text=element_text(size=18))
+  if(grepl("Sex",names(quants_list)[i])){
+    gg <- gg + facet_grid(rows = vars(chrs),cols = vars(method) )
+  } else{
+    gg <- gg + facet_grid(cols = vars(method) )
+  }
+  plot(gg)
+
+}
+
+library(gridExtra)
+library(grid)
+filename=paste(results_dir,"/_w_combp_Width_Percentile_Plot.png", sep = "")
+#png(filename = filename, width = 10, height = 6, units = "in", res = 240)
+grid.newpage()
+grid.arrange(gg, nrow=1)
+#dev.off()  
+
+quants$width <- 10^quants$value
+#filename=paste(results_dir, "_w_combp_Width_Percentile.csv", sep = "")
+#write.csv(file = filename, quants)
+
+
+
+
+
 ```
 
 ```{r}
@@ -190,6 +297,7 @@ for(i in 1:nrow(data_set_regions_df)){
                                                                   chromosome = chr,
                                                                   strand = "*", genome = "hg19",
                                                                   name=unique(result_set$grange$layer)[l])
+          displayPars(dmr_tracks[[length(dmr_tracks)]]) <- list(cex.legend=0.7, cex.axis=0.7, cex.title=0.7, rotation.title=0, col="grey20", fill="grey70", fontcolor.title="grey20", stackHeight = 1, shape="box")
         }
       }
     } else {
@@ -199,20 +307,21 @@ for(i in 1:nrow(data_set_regions_df)){
                                                               chromosome = chr,
                                                               strand = "*", genome = "hg19",
                                                               name=result_set$method_id)
+      displayPars(dmr_tracks[[length(dmr_tracks)]]) <- list(cex.legend=0.7, cex.axis=0.7, cex.title=0.7, rotation.title=0, col="grey20", fill="grey70", fontcolor.title="grey20", stackHeight = 1, shape="box")
+      
     }
   }
-
   
-gtrack<-GenomeAxisTrack()
-displayPars(gtrack) <- list(cex=1, cex.id=1, fontcolor="grey20", col="grey20")
-itrack<-IdeogramTrack(genome=gen,chromosome = chr)
-displayPars(itrack) <- list(cex=1,cex.bands=1, fontcolor="grey20")
-track_list <- c(list(itrack, gtrack, raw_beta_track, norm_beta_track, grtrack),dmr_tracks )
-plotTracks(track_list,
-           from = start-1, to=stop+1, # sizes =c(0.5,0.75,3,2,3,0.35,0.35,0.35,0.35,0.35),
-           background.title = "white"
-          )
-Region_name <- paste(chr, start, stop, sep="_")
+  gtrack<-GenomeAxisTrack()
+  displayPars(gtrack) <- list(cex=1, cex.id=1, fontcolor="grey20", col="grey20")
+  itrack<-IdeogramTrack(genome=gen,chromosome = chr)
+  displayPars(itrack) <- list(cex=1,cex.bands=1, fontcolor="grey20")
+  track_list <- c(list(itrack, gtrack, raw_beta_track, norm_beta_track, grtrack),dmr_tracks )
+  plotTracks(track_list,
+             from = start-1, to=stop+1, # sizes =c(0.5,0.75,3,2,3,0.35,0.35,0.35,0.35,0.35),
+             background.title = "white"
+            )
+
   
 }
 
