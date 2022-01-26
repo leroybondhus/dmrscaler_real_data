@@ -79,9 +79,35 @@ for(data_set_id in 1:length(data_set_list)){
 
 ```{r}
 
+gtf_df <- rtracklayer::import("../../STABLE_DATA/HUMAN_GENOME/Homo_sapiens.GRCh37.87.chr.gtf")
+gtf_df <- as.data.frame(gtf_df)
+gtf_df$seqnames<-paste("chr", gtf_df$seqnames, sep = "")
+
+genes<-as.data.frame(cbind(chromosome=gtf_df$seqnames, start=gtf_df$start, end=gtf_df$end ))
+genes<-cbind(genes, width=as.numeric(as.character(gtf_df$width)), strand=gtf_df$strand, feature=gtf_df$type, gene=gtf_df$gene_id, exon=gtf_df$exon_id, transcript=gtf_df$transcript_id, symbol=gtf_df$gene_name)
+
+genes$start<-as.numeric(as.character(genes$start))
+genes$end<-as.numeric(as.character(genes$end))
+
+
 ```
 
 ```{r}
+data_set_regions_df <- data.frame("data_set"=c("KAT6A"),
+                                  "chr"=c("chr6"),
+                                  "start"=c(25e6),
+                                  "stop"=c(26e6))
+
+for(i in 1:nrow(data_set_regions_df)){
+  data_set_regions_df$data_set
+  data_set_regions_df$chr
+  data_set_regions_df$start
+  data_set_regions_df$stop
+  
+  
+  
+}
+
 
 ```
 
@@ -218,12 +244,7 @@ clean_results_table <- fmt_number(clean_results_table, columns = c(autosome_medi
 
 clean_results_table
 
-gtsave(clean_results_table, filename = paste(results_dir, "/Sex_Analysis_DMR_Summary_Table_2.png",sep=""))
-  fmt_scientific(
-    columns = vars(num),
-    rows = num <= 500,
-    decimals = 1
-  )
+gtsave(clean_results_table, filename = paste( "Sex_Analysis_DMR_Summary_Table_2.png",sep=""))
 
 ```
 
