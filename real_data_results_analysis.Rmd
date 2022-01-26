@@ -12,6 +12,7 @@ library(stringr)
 library(foreach)
 library(doParallel)
 registerDoParallel(detectCores())
+library(Gviz)
 ```
 
 
@@ -77,6 +78,14 @@ for(data_set_id in 1:length(data_set_list)){
 }
 ```
 
+```{r add significance values to data_set_lists}
+for(i in 1:length(data_set_list)){
+  data_set <- data_set_list[[i]]
+  temp <- DMRscaler::run_MWW(data_set$g1, data_set$g2, data_set$B)
+  data_set_list[[i]]$locs$pval <- temp$p_val
+}
+```
+
 ```{r}
 
 gtf_df <- rtracklayer::import("../../STABLE_DATA/HUMAN_GENOME/Homo_sapiens.GRCh37.87.chr.gtf")
@@ -93,18 +102,117 @@ genes$end<-as.numeric(as.character(genes$end))
 ```
 
 ```{r}
-data_set_regions_df <- data.frame("data_set"=c("KAT6A"),
-                                  "chr"=c("chr6"),
-                                  "start"=c(25e6),
-                                  "stop"=c(26e6))
+data_set_regions_df <- data.frame("data_set"=c("Sotos"),
+                                  "chr"=c("chr5"),
+                                  "start"=c(140090846),
+                                  "stop"=c(140984057))
 
 for(i in 1:nrow(data_set_regions_df)){
-  data_set_regions_df$data_set
-  data_set_regions_df$chr
-  data_set_regions_df$start
-  data_set_regions_df$stop
+  data_set <- data_set_list[[data_set_regions_df$data_set[i] ]] 
+  g1 <- data_set$g1
+  g2 <- data_set$g2
+  
+  group<-character(length = ncol(data_set$B))
+  group[which(is.element(colnames(data_set$B),g1))] <- data_set$g1g2_labels$g1
+  group[which(is.element(colnames(data_set$B),g2))] <- data_set$g1g2_labels$g2
+
+  group <- as.factor(group)
+  color=c("blue", "seagreen3")
+  linewide=c(2, 2 )
+  
+  chr <- data_set_regions_df$chr
+  start <- data_set_regions_df$start
+  stop <- data_set_regions_df$stop
   
   
+  genes_exons<-genes[which((genes$chr==chr) & (genes$start>=start) & (genes$end<=stop)),]
+  genes_exons<-droplevels(genes_exons)
+  genes_exons<-genes_exons[complete.cases(genes_exons),]
+  
+  
+  gen<-"hg19"
+  
+  which<-which(data_set$locs$chr==chr & data_set$locs$pos>=start & data_set$locs$pos<=stop )
+  B_sub<- data_set$B[which,]
+  B_norm<-B_sub - rowMeans(B_sub[,g1])
+  locs <- data_set$locs[which,]
+  
+  delta_means <- rowMeans(B_sub[,g1])-rowMeans(B_sub[,g2])
+  
+  
+  irange<-IRanges(start=locs$pos, width=1)
+  grange<-GRanges(seqnames=chr, ranges =  ranges(irange), mcols = B_sub )
+  
+  manhattan_range <- GRanges(seqnames=chr, ranges =  ranges(irange) )
+  manhattan_track <- DataTrack(range = manhattan_range, data = -log10(locs$pval),
+                               lwd=1.5, col.histogram=c("black"), type=c("hist"), ylim=c(0,max(-log10(locs$pval))))
+
+ 
+  raw_beta_track<-DataTrack(range=grange, data=t(B_sub), groups=group,
+                            genome=gen, name="Beta", col=color, type=c("a","g", "confint"),
+                            lwd=linewide, fontcolor.title="grey20", col.axis="black",
+                            fontcolor.legend="grey20", legend = TRUE, lwd.grid=0.8,
+                            col.grid="grey65",v=0 )
+  displayPars(raw_beta_track) <- list( cex.legend=1, cex.axis=1, cex.title=1 )
+
+  norm_beta_track<-DataTrack(range=grange, data=delta_means,  genome=gen,
+                             group ="delta", name="Delta Beta", col="black",
+                             type=c("a", "g"), fontcolor.title="grey20",col.axis="black",
+                             fontcolor.legend="grey20",legend = TRUE, baseline=0,
+                             col.baseline="black", lty.baseline=3)
+  displayPars(norm_beta_track) <- list( cex.legend=1, cex.axis=1, cex.title=1 , lwd.grid=1, col.grid="grey80",v=0,h=0)
+  
+  
+  grtrack <- GeneRegionTrack(genes_exons, genome=gen, chromosome=chr,
+                             name="Gene Model", transcriptAnnotation="symbol",
+                             collapseTranscripts = "meta")
+  displayPars(grtrack) <- list( background.panel="white", col="grey20", fontsize=25, 
+                                fontsize.group=25, fill = "grey50", lwd=1, 
+                                fontcolor.group="grey20", fontcolor.title="grey20",
+                                stackHeight = 0.95, shape="box")
+  if( length(which)==0 ){
+    grtrack <- itrack
+  }
+  
+  dmr_tracks <- list()
+  
+  data_set_id <- grep(data_set$data_set_name, names(data_set_list))
+  result_set_ids <- grep(paste("data_set_", data_set_id, sep = ""), names(data_set_results))
+  for(rs_index in result_set_ids){
+    result_set <- data_set_results[[rs_index]] 
+    if(grepl("dmrscaler", result_set$method)){
+      if(grepl("_2", result_set$method_id)){
+        for(l in 1:length(unique(result_set$grange$layer))){
+          which_in_layer <- which(result_set$grange$layer==unique(result_set$grange$layer)[l]
+                                  & seqnames(result_set$grange)==chr )
+          dmr_tracks[[length(dmr_tracks)+1]] <- AnnotationTrack(start = start(result_set$grange[which_in_layer]) , 
+                                                                  end =  end(result_set$grange[which_in_layer]),
+                                                                  chromosome = chr,
+                                                                  strand = "*", genome = "hg19",
+                                                                  name=unique(result_set$grange$layer)[l])
+        }
+      }
+    } else {
+      which_in_anno <- which(seqnames(result_set$grange)==chr)
+      dmr_tracks[[length(dmr_tracks)+1]] <- AnnotationTrack(start = start(result_set$grange[which_in_anno]) , 
+                                                              end =  end(result_set$grange[which_in_anno]),
+                                                              chromosome = chr,
+                                                              strand = "*", genome = "hg19",
+                                                              name=result_set$method_id)
+    }
+  }
+
+  
+gtrack<-GenomeAxisTrack()
+displayPars(gtrack) <- list(cex=1, cex.id=1, fontcolor="grey20", col="grey20")
+itrack<-IdeogramTrack(genome=gen,chromosome = chr)
+displayPars(itrack) <- list(cex=1,cex.bands=1, fontcolor="grey20")
+track_list <- c(list(itrack, gtrack, raw_beta_track, norm_beta_track, grtrack),dmr_tracks )
+plotTracks(track_list,
+           from = start-1, to=stop+1, # sizes =c(0.5,0.75,3,2,3,0.35,0.35,0.35,0.35,0.35),
+           background.title = "white"
+          )
+Region_name <- paste(chr, start, stop, sep="_")
   
 }
 
