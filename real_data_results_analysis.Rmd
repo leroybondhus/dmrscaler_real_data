@@ -14,6 +14,7 @@ library(doParallel)
 registerDoParallel(detectCores())
 library(Gviz)
 library(ggplot2)
+library(gridExtra)
 ```
 
 
@@ -21,6 +22,8 @@ library(ggplot2)
 load("method_set_list.Rdata")
 load("data_set_list.Rdata")
 
+figures_dir <- "./results/figures/"
+tables_dir <- "./results/tables/"
 ```
 
 ```{r add significance values to data_set_lists}
@@ -338,26 +341,25 @@ library("gt")
 
 results_table_list <- list()
 
-
-ds_id <- grep("Sex", names(data_set_list), invert = T)
-result_set_ids <- grep(paste("data_set_", data_set_id, sep = ""), names(data_set_results))
-for(ds_id in data_set_ids){
+for(ds_id in grep("Sex", names(data_set_list), invert = T)){
   results_table <- data.frame("method"=character(),
                               "num_dmrs"=numeric(), 
                               "mean_width"=numeric(),
                               "median_width"=numeric(),
                               "percent_total_width"=numeric())
+  result_set_ids <- grep(paste("data_set_", ds_id, sep = ""), names(data_set_results))
   for(rs_index in result_set_ids){
     result_set <- data_set_results[[rs_index]] 
     if(grepl("dmrscaler", result_set$method)){
       if(grepl("_1", result_set$method_id)){
         for(l in 1:length(unique(result_set$grange$layer))){
+          which <- which(result_set$grange$layer == unique(result_set$grange$layer)[l])
           results_table <- rbind(results_table,
                                  data.frame("method" = result_set$method,
-                                            "num_dmrs" = length(result_set$grange),
-                                            "mean_width" = mean(width(result_set$grange)),
-                                            "median_width" = median(width(result_set$grange)), 
-                                            "percent_total_width" = sum(width(result_set$grange)) / 
+                                            "num_dmrs" = length(result_set$grange[which]),
+                                            "mean_width" = mean(width(result_set$grange[which])),
+                                            "median_width" = median(width(result_set$grange[which])), 
+                                            "percent_total_width" = sum(width(result_set$grange[which])) / 
                                               sum(seqlengths(result_set$grange))
                            ))
           rownames(results_table)[nrow(results_table)] <- unique(result_set$grange$layer)[l] 
@@ -376,45 +378,50 @@ for(ds_id in data_set_ids){
     }
   
   }
+  
+  results_table$method_params <- rownames(results_table)
+  
+  clean_results_table <- gt(results_table, groupname_col = "method", rowname_col = "method_params") 
+  clean_results_table <- tab_header(clean_results_table, title = paste(names(data_set_list)[ds_id],"Analysis DMR Summary Table"))
+  clean_results_table <- tab_stubhead(clean_results_table , "method")
+  
+  clean_results_table <- cols_label(clean_results_table,
+                                    num_dmrs = html(" #\n<br>DMRs "),
+                                    mean_width = html(" mean\n<br>DMR width "),
+                                    median_width = html(" median\n<br>DMR width "),
+                                    percent_total_width = html(" % total\n<br>width "))
+  
+  
+  clean_results_table <- fmt_number(clean_results_table, columns = c(percent_total_width),
+                                    n_sigfig = 2, scale_by = 100, pattern = "{x}%")
+  clean_results_table <- fmt_number(clean_results_table, columns = c(mean_width),
+                                    rows = (mean_width >= 1e6),
+                                    decimals = 2, scale_by = 1/1e6, pattern = "{x} Mb")
+  clean_results_table <- fmt_number(clean_results_table, columns = c(mean_width),
+                                    rows = (mean_width > 1000) & (mean_width < 1e6),
+                                    decimals = 2, scale_by = 1/1000, pattern = "{x} kb")
+  clean_results_table <- fmt_number(clean_results_table, columns = c(mean_width),
+                                    rows = (mean_width <= 1000),
+                                    decimals = 0, pattern = "{x} bp")
+  
+  clean_results_table <- fmt_number(clean_results_table, columns = c(median_width),
+                                    rows = (median_width >= 1e6),
+                                    decimals = 2, scale_by = 1/1e6, pattern = "{x} Mb")
+  clean_results_table <- fmt_number(clean_results_table, columns = c(median_width),
+                                    rows = (median_width > 1000) & (median_width < 1e6),
+                                    decimals = 2, scale_by = 1/1000, pattern = "{x} kb")
+  clean_results_table <- fmt_number(clean_results_table, columns = c(median_width),
+                                    rows = (median_width <= 1000),
+                                    decimals = 0, pattern = "{x} bp")
+  
+  results_table_list[[names(data_set_list)[ds_id]]] <- clean_results_table
+  
 }
 
 
-results_table$method_params <- rownames(results_table)
-
-clean_results_table <- gt(results_table, groupname_col = "method", rowname_col = "method_params") 
-clean_results_table <- tab_header(clean_results_table, title = "Sex Analysis DMR Summary Table")
-clean_results_table <- tab_spanner(clean_results_table,
-                                   columns = c("num_dmrs","mean_width","median_width", "percent_total_width") )
-clean_results_table <- tab_stubhead(clean_results_table , "method")
-
-clean_results_table <- cols_label(clean_results_table,
-                                  num_dmrs = html(" #\n<br>DMRs "),
-                                  mean_width = html(" mean\n<br>DMR width "),
-                                  median_width = html(" median\n<br>DMR width "),
-                                  percent_total_width = html(" % total\n<br>width "))
-
-
-clean_results_table <- fmt_number(clean_results_table, columns = c(percent_total_width),
-                                  n_sigfig = 2, scale_by = 100, pattern = "{x}%")
-clean_results_table <- fmt_number(clean_results_table, columns = c(mean_width),
-                                  rows = (mean_width >= 1e6),
-                                  decimals = 2, scale_by = 1/1e6, pattern = "{x} Mb")
-clean_results_table <- fmt_number(clean_results_table, columns = c(mean_width),
-                                  rows = (mean_width > 1000) & (mean_width < 1e6),
-                                  decimals = 2, scale_by = 1/1000, pattern = "{x} kb")
-clean_results_table <- fmt_number(clean_results_table, columns = c(mean_width),
-                                  rows = (mean_width <= 1000),
-                                  decimals = 0, pattern = "{x} bp")
-
-clean_results_table <- fmt_number(clean_results_table, columns = c(median_width),
-                                  rows = (median_width >= 1e6),
-                                  decimals = 2, scale_by = 1/1e6, pattern = "{x} Mb")
-clean_results_table <- fmt_number(clean_results_table, columns = c(median_width),
-                                  rows = (median_width > 1000) & (median_width < 1e6),
-                                  decimals = 2, scale_by = 1/1000, pattern = "{x} kb")
-clean_results_table <- fmt_number(clean_results_table, columns = c(median_width),
-                                  rows = (median_width <= 1000),
-                                  decimals = 0, pattern = "{x} bp")
+for(i in 1:length(results_table_list)){
+  print(results_table_list[i])
+}
 
 clean_results_table
 
@@ -651,5 +658,160 @@ webshot(paste("FINAL_X2_chrom_dmrs_diagonalNetwork.html", sep=""),
 ```
 
 
+
+```{r supplemental figures DMR width distributions and distribution summary tables}
+library("gt")
+
+
+data_set_id <- grep("Sex", names(data_set_list))
+result_set_ids <- grep(paste("data_set_", data_set_id, sep = ""), names(data_set_results))
+for(rs_index in result_set_ids){
+  result_set <- data_set_results[[rs_index]] 
+  if(grepl("dmrscaler", result_set$method)){
+    if(grepl("_1", result_set$method_id)){
+      for(l in 1:length(unique(result_set$grange$layer))){
+        which_x <- which(result_set$grange@seqnames=="chrX" &
+                           result_set$grange$layer == unique(result_set$grange$layer)[l])
+        which_not_x <- which(result_set$grange@seqnames != "chrX" & result_set$grange@seqnames != "chrY" &
+                           result_set$grange$layer == unique(result_set$grange$layer)[l])
+
+        gglist <- list()
+        gglist[["X_chromosome"]] <- ggplot(data.frame(widths=width(result_set$grange[which_x])), aes(x=log10(widths)) )+
+          ggtitle(label = "X chromosome DMR widths",
+                  subtitle = paste(unique(result_set$grange$layer)[l], sep=""))+
+          geom_histogram(bins=50)+
+          xlim(0,8.5)+
+          theme(text=element_text(size=18))
+        gglist[["Autosomes"]] <- ggplot(data.frame(widths=width(result_set$grange[which_not_x]) ), aes(x=log10(widths)) )+
+          ggtitle(label = "Autosome DMR widths",
+                  subtitle = paste(unique(result_set$grange$layer)[l], sep=""))+
+          geom_histogram(bins=50)+
+          xlim(0,8.5)+
+          theme(text=element_text(size=18))
+        filename=paste(figures_dir, result_set$data_set ,"_DMR_widths__",unique(result_set$grange$layer)[l], ".png", sep = "")
+        png(filename = filename, width = 10, height = 6, units = "in", res = 150)
+        grid.newpage()
+        grid.arrange( gglist[["X_chromosome"]],  gglist[["Autosomes"]], nrow=1)
+        dev.off()
+      }
+    }
+  }else{
+    gglist <- list()
+    which_x <- which(result_set$grange@seqnames=="chrX")
+    which_not_x <- which(result_set$grange@seqnames != "chrX" & result_set$grange@seqnames != "chrY")
+    gglist <- list()
+    gglist[["X_chromosome"]] <- ggplot(data.frame(widths=width(result_set$grange[which_x]) ), aes(x=log10(widths)) )+
+      ggtitle(label = "X chromosome DMR widths",
+              subtitle = paste(result_set$method_id, sep=""))+
+      geom_histogram(bins=50)+
+      xlim(0,8.5)+
+      theme(text=element_text(size=18))
+    gglist[["Autosomes"]] <- ggplot(data.frame(widths=width(result_set$grange[which_not_x]) ), aes(x=log10(widths)) )+
+      ggtitle(label = "Autosome DMR widths",
+              subtitle = paste(result_set$method_id, sep=""))+
+      geom_histogram(bins=50)+
+      xlim(0,8.5)+
+      theme(text=element_text(size=18))
+    filename=paste(figures_dir, result_set$data_set ,"_DMR_widths__",result_set$method_id, ".png", sep = "")
+    png(filename = filename, width = 10, height = 6, units = "in", res = 150)
+    grid.newpage()
+    grid.arrange( gglist[["X_chromosome"]],  gglist[["Autosomes"]], nrow=1)
+    dev.off()
+  }
+
+}
+
+
+
+### write csvs of percentile widths ###
+quants <- data.frame(percentile = numeric(), value = numeric(), method = character(), pars = character(), chrs = character())
+for(i in 1:length(built_layers)){
+  which <- which(built_layers[[i]]$chr == "chrX")
+  temp <- quantile(log10(built_layers[[i]]$stop_pos[which] - built_layers[[i]]$start_pos[which]), seq(0.01,1,by=0.01), type=1)
+  quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                     method = "DMRscaler", pars = paste("DMRscaler_layer",i,sep = ""), chrs="chrX"))
+  which <- which(built_layers[[i]]$chr != "chrX" & built_layers[[i]]$chr != "chrY")
+  temp <- quantile(log10(built_layers[[i]]$stop_pos[which] - built_layers[[i]]$start_pos[which]), seq(0.01,1,by=0.01), type=1)
+  quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                     method = "DMRscaler", pars = paste("DMRscaler_layer",i,sep = ""), chrs="Autosome"))
+}
+
+which <- which(bumps_default$table$chr == "chrX")
+temp <- quantile(log10(bumps_default$table$end[which] - bumps_default$table$start[which]), seq(0.01,1,by=0.01), type=1)
+quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                      method = "bumphunter",pars="bumphunter_default", chrs="chrX"))
+which <- which(bumps_default$table$chr != "chrX" & bumps_default$table$chr != "chrY" )
+temp <- quantile(log10(bumps_default$table$end[which] - bumps_default$table$start[which]), seq(0.01,1,by=0.01), type=1)
+quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                     method = "bumphunter",pars="bumphunter_default", chrs="Autosome"))
+
+which <- which(bumps_1Mb$table$chr == "chrX")
+temp <- quantile(log10(bumps_1Mb$table$end[which] - bumps_1Mb$table$start[which]), seq(0.01,1,by=0.01), type=1)
+quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                     method = "bumphunter",pars="bumphunter:maxWidth=1Mb", chrs="chrX"))
+which <-  which(bumps_1Mb$table$chr != "chrX" & bumps_1Mb$table$chr != "chrY" )
+temp <- quantile(log10(bumps_1Mb$table$end[which] - bumps_1Mb$table$start[which]), seq(0.01,1,by=0.01), type=1)
+quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                     method = "bumphunter",pars="bumphunter:maxWidth=1Mb", chrs="Autosome"))
+
+
+
+which <- which(combp_results_1k_100$X.chrom == "chrX")
+temp <- quantile(log10(combp_results_1k_100$end[which] - combp_results_1k_100$start[which]), seq(0.01,1,by=0.01), type=1)
+quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                      method = "combp",pars="combp:dist=1kb,step=100bp", chrs="chrX"))
+which <- which(combp_results_1k_100$X.chrom != "chrX" & combp_results_1k_100$X.chrom != "chrY" )
+temp <- quantile(log10(combp_results_1k_100$end[which] - combp_results_1k_100$start[which]), seq(0.01,1,by=0.01), type=1)
+quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                     method = "combp",pars="combp:dist=1kb,step=100bp", chrs="Autosome"))
+
+which <- which(combp_results_1M_100k$X.chrom == "chrX")
+temp <- quantile(log10(combp_results_1M_100k$end[which] - combp_results_1M_100k$start[which]), seq(0.01,1,by=0.01), type=1)
+quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                      method = "combp",pars="combp:dist=1Mb,step=100kb", chrs="chrX"))
+which <- which(combp_results_1M_100k$X.chrom != "chrX" & combp_results_1M_100k$X.chrom != "chrY" )
+temp <- quantile(log10(combp_results_1M_100k$end[which] - combp_results_1M_100k$start[which]), seq(0.01,1,by=0.01), type=1)
+quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                     method = "combp",pars="combp:dist=1Mb,step=100kb", chrs="Autosome"))
+
+
+
+
+which <- which(dmrcate_dmrs_default@seqnames == "chrX")
+temp <- quantile(log10(dmrcate_dmrs_default@ranges@width[which]), seq(0.01,1,by=0.01), type=1)
+quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                     method = "DMRcate",pars="dmrcate_default", chrs="chrX"))
+which <-  which(dmrcate_dmrs_default@seqnames != "chrX" & dmrcate_dmrs_default@seqnames != "chrY" )
+temp <- quantile(log10(dmrcate_dmrs_default@ranges@width[which]), seq(0.01,1,by=0.01), type=1)
+quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                     method = "DMRcate",pars="dmrcate_default", chrs="Autosome"))
+
+which <- which(dmrcate_dmrs_1M@seqnames == "chrX")
+temp <- quantile(log10(dmrcate_dmrs_1M@ranges@width[which]), seq(0.01,1,by=0.01), type=1)
+quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                     method = "DMRcate",pars="dmrcate:lambda=1Mb,C=2000", chrs="chrX"))
+which <-  which(dmrcate_dmrs_1M@seqnames != "chrX" & dmrcate_dmrs_1M@seqnames != "chrY" )
+temp <- quantile(log10(dmrcate_dmrs_1M@ranges@width[which]), seq(0.01,1,by=0.01), type=1)
+quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
+                                     method = "DMRcate",pars="dmrcate:lambda=1Mb,C=2000", chrs="Autosome"))
+
+
+gg<-ggplot(quants, aes(x=percentile, y=value, color=pars))+
+  geom_line()+
+  ylab("-log10(Width)")+
+  facet_grid(rows = vars(chrs),cols = vars(method) )+
+  theme(text=element_text(size=18))
+
+filename=paste(results_dir, "/SEX_Width_Percentile_Plot.png", sep = "")
+png(filename = filename, width = 10, height = 6, units = "in", res = 240)
+grid.newpage()
+grid.arrange(gg, nrow=1)
+dev.off()  
+
+quants$width <- 10^quants$value
+filename=paste(results_dir, "/SEX_Width_Percentile.csv", sep = "")
+write.csv(file = filename, quants)
+
+```
 
 
