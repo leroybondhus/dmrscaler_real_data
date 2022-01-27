@@ -214,14 +214,14 @@ genes$end<-as.numeric(as.character(genes$end))
 
 ```
 
-```{r}
+```{r, fig.height=9}
 data_set_regions_df <- data.frame("data_set"=c("Sotos"),
                                   "chr"=c("chr5"),
                                   "start"=c(140090846),
                                   "stop"=c(140984057))
 
-for(i in 1:nrow(data_set_regions_df)){
-  data_set <- data_set_list[[data_set_regions_df$data_set[i] ]] 
+for(region_id in 1:nrow(data_set_regions_df)){
+  data_set <- data_set_list[[data_set_regions_df$data_set[region_id] ]] 
   g1 <- data_set$g1
   g2 <- data_set$g2
   
@@ -340,19 +340,20 @@ for(i in 1:nrow(data_set_regions_df)){
     geom_segment(aes(xend=1:length(-log10(pval)), y=0, yend=-log10(pval), alpha=0.5)) +
     geom_point(aes(color= -log10(pval))) + 
     scale_color_gradient2(low="grey60", mid="grey30", high = "red", midpoint = -log10(0.05) )+
-  xlab("CG index over region") + ylab("-log10(pval)")+
-  ggtitle(paste("Adjacent_CG_plot_", chr,"_" ,start, "_", stop))+
-  ylab("-log10pval") +
-  theme_bw()+
-  theme(
-    plot.background = element_blank(),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    axis.text.x = element_blank(), axis.title.x = element_blank(),
-    text = element_text(size=12, color = "black"),
-    axis.text = element_text(size=12, color = "black"),
-    legend.position = "none"
-  )
+    xlab("CG index over region") + ylab("-log10(pval)")+
+    ggtitle(paste("Adjacent_CG_plot_", chr,"_" ,start, "_", stop))+
+    ylab("-log10pval") +
+    scale_x_continuous(expand = c(0, 0))+
+    theme_bw()+
+    theme(
+      plot.background = element_blank(),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.text.x = element_blank(), axis.title.x = element_blank(),
+      text = element_text(size=12, color = "black"),
+      axis.text = element_text(size=12, color = "black"),
+      legend.position = "none"
+    )
 
   plot(gglist[["signif_adj_plot"]])  
 
@@ -363,6 +364,7 @@ for(i in 1:nrow(data_set_regions_df)){
     geom_line(aes(x=index, y=mean, group=names, alpha=0.5))+
     geom_point(aes(x=index, y=mean, color=group))+
     scale_color_manual(values=color)+
+    scale_x_continuous(expand = c(0, 0))+
   ylab("Beta") +
   theme_bw()+
   theme(
@@ -384,6 +386,7 @@ for(i in 1:nrow(data_set_regions_df)){
     geom_line(aes(x=index, y=mean, group=names, alpha=0.5))+
     geom_point(aes(x=index, y=mean, color=group))+
     scale_color_manual(values=color)+
+    scale_x_continuous(expand = c(0, 0))+
   ylab("Normalized Beta") +
   theme_bw()+
   theme(
@@ -408,7 +411,8 @@ for(i in 1:nrow(data_set_regions_df)){
     if(grepl("dmrscaler", result_set$method)){
       if(grepl("_2", result_set$method_id)){
         in_dmr_list[[result_set$method]]$locs <- locs
-        in_dmr_list[[result_set$method]]$locs$in_dmr <- 0
+        in_dmr_list[[result_set$method]]$locs$index <- 1:nrow(locs)
+        in_dmr_list[[result_set$method]]$locs$in_dmr <- 0 
         for(l in 1:length(unique(result_set$grange$layer))){
           which_in_layer <- which(result_set$grange$layer==unique(result_set$grange$layer)[l])
           in_dmr_list[[result_set$method]]$locs$in_dmr <- in_dmr_list[[result_set$method]]$locs$in_dmr + 
@@ -418,38 +422,60 @@ for(i in 1:nrow(data_set_regions_df)){
       }
     } else {
       in_dmr_list[[result_set$method_id]]$locs <- locs
+        in_dmr_list[[result_set$method_id]]$locs$index <- 1:nrow(locs)
       in_dmr_list[[result_set$method_id]]$locs$in_dmr <- countOverlaps(locs_gr, result_set$grange)
     }
   }
   
   
+  for(in_dmr_plot_id in 1:length(in_dmr_list)){
+    plot_name <- paste("in_dmr_plot_", names(in_dmr_list)[in_dmr_plot_id], sep="") 
+    gglist[[plot_name]] <- ggplot(in_dmr_list[[in_dmr_plot_id]]$locs)+
+      geom_bar(aes(x=index, y=in_dmr, color=in_dmr), fill="grey70",  stat="identity")+
+      scale_color_gradient(low="grey50", high = "grey50")+
+      xlab("CG index over region") +
+      theme_bw()+
+      scale_x_continuous(expand = c(0, 0))+
+      theme(
+        plot.background = element_blank(),
+        panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        text = element_text(size=12, color = "black"),
+        axis.text = element_text(size=12, color = "black"),
+        legend.position = "none"
+      )
+    if(grepl("dmrscaler", names(in_dmr_list)[in_dmr_plot_id]) ){
+      gglist[[plot_name]] <- gglist[[plot_name]] + 
+        scale_y_continuous(breaks = seq(0,length(in_dmr_list$dmrscaler$layer_names),1) ,
+                           labels= c("none", rev(in_dmr_list$dmrscaler$layer_names)))+
+      ylab("Layer") 
+    } else {
+      gglist[[plot_name]] <- gglist[[plot_name]] + 
+        scale_y_continuous(breaks = seq(0,1),
+                           labels= c("0", "1"))+
+        ylab(gsub("in_dmr_plot_","", plot_name))+
+        theme(
+          axis.title.y = element_text(angle = 0, hjust=1),
+          axis.title.x=element_blank(),
+          axis.text.x=element_blank(),
+          axis.ticks.x=element_blank()
+        )
+    }
+  }
+  gtable <- ggplot_gtable(ggplot_build(gglist[[1]]))
+  for(i in 2:length(gglist)){
+    gtable <- rbind(gtable, ggplot_gtable(ggplot_build(gglist[[i]])) )
+  }
+  panels <- gtable$layout$t[grepl("panel", gtable$layout$name)]
+  gtable$heights[panels] <- unit(c(rep(4,4), rep(1,6)),"null")
+  grid.newpage()
+  grid.draw(gtable)
   
+  # filename=paste(figures_dir"Adjacent_CG_plots_", chr,"_" ,start, "_", stop, ".png", sep = "")  
+  # png(filename = filename, width = 2.75, height = 4, units = "in", res = 320)
   
-  temp <- cbind("index" = 1:length(which), locs[which,])
-  ggp_dmr_layers <- ggplot(temp)+
-  geom_bar(aes(x=index, y=dmr_layers, color=dmr_layers), fill="grey70",  stat="identity")+
-  scale_color_gradient(low="grey50", high = "grey50")+
-  scale_y_continuous(breaks = c(0,1,2,3,4,5), labels = c("none","64_CG_layer","32_CG_layer","16_CG_layer","8_CG_layer","4_CG_layer"))+
-  ylab("Layer") +
-  xlab("CG index over region") +
-  theme_bw()+
-  theme(
-    plot.background = element_blank(),
-    panel.grid.major = element_blank(),
-    panel.grid.minor = element_blank(),
-    text = element_text(size=12, color = "black"),
-    axis.text = element_text(size=12, color = "black"),
-    legend.position = "none"
-  )
-  plot(ggp_dmr_layers)
 
-  filename=paste(figures_dir"Adjacent_CG_plots_", chr,"_" ,start, "_", stop, ".png", sep = "")  
-  png(filename = filename, width = 2.75, height = 4, units = "in", res = 320)
-
-    grid.newpage()
-  grid.draw(rbind(ggplotGrob(ggp_sig_adj), ggplotGrob(ggp_beta_raw), ggplotGrob(ggp_beta_norm), ggplotGrob(ggp_dmr_layers) ) )
-
-  dev.off()
+  # dev.off()
   
   
   
