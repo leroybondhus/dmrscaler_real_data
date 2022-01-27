@@ -177,6 +177,12 @@ for(i in 1:length(quants_list)){
   plot(gg)
 
 }
+
+
+for(i in 1:length(quants_list)){
+  filename <-  paste(tables_dir,"quantile_table_", names(quants_list)[i], ".csv", sep="")
+  write.csv(file=filename, quants_list[[i]])
+}
 # 
 # library(gridExtra)
 # library(grid)
@@ -189,9 +195,6 @@ for(i in 1:length(quants_list)){
 # quants$width <- 10^quants$value
 # #filename=paste(results_dir, "_w_combp_Width_Percentile.csv", sep = "")
 # #write.csv(file = filename, quants)
-
-
-
 
 
 ```
@@ -324,8 +327,122 @@ for(i in 1:nrow(data_set_regions_df)){
              from = start-1, to=stop+1, # sizes =c(0.5,0.75,3,2,3,0.35,0.35,0.35,0.35,0.35),
              background.title = "white"
             )
+  
+  
+  
+  
+  
+  
+  
+  
+  gglist <- list()
+  gglist[["signif_adj_plot"]] <- ggplot(locs, aes(x=1:length(pval), y=-log10(pval) )) +
+    geom_segment(aes(xend=1:length(-log10(pval)), y=0, yend=-log10(pval), alpha=0.5)) +
+    geom_point(aes(color= -log10(pval))) + 
+    scale_color_gradient2(low="grey60", mid="grey30", high = "red", midpoint = -log10(0.05) )+
+  xlab("CG index over region") + ylab("-log10(pval)")+
+  ggtitle(paste("Adjacent_CG_plot_", chr,"_" ,start, "_", stop))+
+  ylab("-log10pval") +
+  theme_bw()+
+  theme(
+    plot.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_blank(), axis.title.x = element_blank(),
+    text = element_text(size=12, color = "black"),
+    axis.text = element_text(size=12, color = "black"),
+    legend.position = "none"
+  )
+
+  plot(gglist[["signif_adj_plot"]])  
 
   
+  df_betas <- cbind("index" = 1:nrow(locs), locs, "mean"= rowMeans(B_sub[,g1]), "group"=data_set$g1g2_labels$g1 )
+  df_betas <- rbind(df_betas, cbind("index" = 1:nrow(locs), locs, "mean" = rowMeans(B_sub[,g2]), "group"=data_set$g1g2_labels$g2))
+                    
+  gglist[["beta_raw_adj_plot"]] <- ggplot(df_betas)+
+    geom_line(aes(x=index, y=mean, group=names, alpha=0.5))+
+    geom_point(aes(x=index, y=mean, color=group))+
+    scale_color_manual(values=color)+
+  ylab("Beta") +
+  theme_bw()+
+  theme(
+    plot.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_blank(), axis.title.x = element_blank(),
+    text = element_text(size=12, color = "black"),
+    axis.text = element_text(size=12, color = "black"),
+    legend.position = "none"
+  )
+  
+  plot(gglist[["beta_raw_adj_plot"]])
+  
+    
+  df_betas <- cbind("index" = 1:nrow(locs), locs, "mean"= rowMeans(B_norm[,g1]), "group"=data_set$g1g2_labels$g1 )
+  df_betas <- rbind(df_betas, cbind("index" = 1:nrow(locs), locs, "mean" = rowMeans(B_norm[, g2]), "group"=data_set$g1g2_labels$g2))
+  
+  gglist[["beta_norm_adj_plot"]] <- ggplot(df_betas)+
+    geom_line(aes(x=index, y=mean, group=names, alpha=0.5))+
+    geom_point(aes(x=index, y=mean, color=group))+
+    scale_color_manual(values=color)+
+  ylab("Normalized Beta") +
+  theme_bw()+
+  theme(
+    plot.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.text.x = element_blank(), axis.title.x = element_blank(),
+    text = element_text(size=12, color = "black"),
+    axis.text = element_text(size=12, color = "black"),
+    legend.position = "none"
+  )
+  
+  plot(gglist[["beta_norm_adj_plot"]]) 
+  
+  
+  
+  ## is CG j in a DMR a level i
+  locs$dmr_layers <- 0
+  pos_gr <- GRanges(seqnames = locs$chr, ranges = IRanges(start = locs$pos, width = 1))
+  for(i in 1:length(built_layers)){
+    bl_gr <- GRanges(seqnames = built_layers[[i]]$chr, ranges = IRanges(start = built_layers[[i]]$start_pos, end = built_layers[[i]]$stop_pos))
+    locs$dmr_layers <- locs$dmr_layers + GenomicRanges::countOverlaps(pos_gr, bl_gr)
+  }
+  
+
+    temp <- cbind("index" = 1:length(which), locs[which,])
+    ggp_dmr_layers <- ggplot(temp)+
+  #  geom_line(aes(x=index, y=dmr_layers )) +
+  #  geom_point(aes(x=index, y=dmr_layers )) +
+    geom_bar(aes(x=index, y=dmr_layers, color=dmr_layers), fill="grey70",  stat="identity")+
+    scale_color_gradient(low="grey50", high = "grey50")+
+    scale_y_continuous(breaks = c(0,1,2,3,4,5), labels = c("none","64_CG_layer","32_CG_layer","16_CG_layer","8_CG_layer","4_CG_layer"))+
+    ylab("Layer") +
+    xlab("CG index over region") +
+    theme_bw()+
+    theme(
+      plot.background = element_blank(),
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      text = element_text(size=12, color = "black"),
+      axis.text = element_text(size=12, color = "black"),
+      legend.position = "none"
+    )
+  plot(ggp_dmr_layers)
+
+  filename=paste(figures_dir"Adjacent_CG_plots_", chr,"_" ,start, "_", stop, ".png", sep = "")  
+  png(filename = filename, width = 2.75, height = 4, units = "in", res = 320)
+
+    grid.newpage()
+  grid.draw(rbind(ggplotGrob(ggp_sig_adj), ggplotGrob(ggp_beta_raw), ggplotGrob(ggp_beta_norm), ggplotGrob(ggp_dmr_layers) ) )
+
+  dev.off()
+  
+  
+  
+  
+    
 }
 
 
@@ -335,7 +452,7 @@ for(i in 1:nrow(data_set_regions_df)){
 
 ```
 
-```{r}
+```{r  make rare disease analysis results tables}
 
 library("gt")
 
@@ -351,7 +468,7 @@ for(ds_id in grep("Sex", names(data_set_list), invert = T)){
   for(rs_index in result_set_ids){
     result_set <- data_set_results[[rs_index]] 
     if(grepl("dmrscaler", result_set$method)){
-      if(grepl("_1", result_set$method_id)){
+      if(grepl("_2", result_set$method_id)){
         for(l in 1:length(unique(result_set$grange$layer))){
           which <- which(result_set$grange$layer == unique(result_set$grange$layer)[l])
           results_table <- rbind(results_table,
@@ -448,7 +565,7 @@ result_set_ids <- grep(paste("data_set_", data_set_id, sep = ""), names(data_set
 for(rs_index in result_set_ids){
   result_set <- data_set_results[[rs_index]] 
   if(grepl("dmrscaler", result_set$method)){
-    if(grepl("_1", result_set$method_id)){
+    if(grepl("_2", result_set$method_id)){
       for(l in 1:length(unique(result_set$grange$layer))){
         which_x <- which(result_set$grange@seqnames=="chrX" &
                            result_set$grange$layer == unique(result_set$grange$layer)[l])
@@ -552,7 +669,7 @@ clean_results_table <- fmt_number(clean_results_table, columns = c(autosome_medi
 
 clean_results_table
 
-gtsave(clean_results_table, filename = paste( "Sex_Analysis_DMR_Summary_Table_2.png",sep=""))
+#gtsave(clean_results_table, filename = paste( "Sex_Analysis_DMR_Summary_Table_2.png",sep=""))
 
 ```
 
@@ -641,25 +758,25 @@ dmr_tree_clean <- strip_grs(dmr_tree)
 library("webshot") ###  library to fix an obnoxious problem
 
 temp <- radialNetwork(List = dmr_tree_clean, fontSize = 16, fontFamily = "bold", nodeStroke = "black", linkColour = "grey60", opacity = 1, margin=0, height = 1600, width = 1600)
-saveNetwork(temp,paste("All_chrom_dmrs_radialNetwork.html",sep = "") ,
-            selfcontained = T)
-webshot(paste("All_chrom_dmrs_radialNetwork.html",sep = ""),
-        paste("All_all_layer_chrom_dmrs_radialNetwork.png",sep = ""),
-        zoom = 2)
-
-
-temp <- diagonalNetwork(List = dmr_tree_clean[[2]][[1]], fontSize = 12, fontFamily = "bold", nodeStroke = "black", linkColour = "black", opacity = 1,  margin=0, height = 400, width = 150)
-saveNetwork(temp,paste(figures_dir, "FINAL_X2_chrom_dmrs_diagonalNetwork.html", sep="") , selfcontained = T )
-webshot(paste("FINAL_X2_chrom_dmrs_diagonalNetwork.html", sep=""),
-        paste("FINAL_X2_chrom_dmrs_diagonalNetwork.png", sep=""),
-        vheight = 400, vwidth = 150 , zoom =10 )
+# saveNetwork(temp,paste("All_chrom_dmrs_radialNetwork.html",sep = "") ,
+#             selfcontained = T)
+# webshot(paste("All_chrom_dmrs_radialNetwork.html",sep = ""),
+#         paste("All_all_layer_chrom_dmrs_radialNetwork.png",sep = ""),
+#         zoom = 2)
+# 
+# 
+# temp <- diagonalNetwork(List = dmr_tree_clean[[2]][[1]], fontSize = 12, fontFamily = "bold", nodeStroke = "black", linkColour = "black", opacity = 1,  margin=0, height = 400, width = 150)
+# saveNetwork(temp,paste(figures_dir, "FINAL_X2_chrom_dmrs_diagonalNetwork.html", sep="") , selfcontained = T )
+# webshot(paste("FINAL_X2_chrom_dmrs_diagonalNetwork.html", sep=""),
+#         paste("FINAL_X2_chrom_dmrs_diagonalNetwork.png", sep=""),
+#         vheight = 400, vwidth = 150 , zoom =10 )
 
 
 ```
 
 
 
-```{r supplemental figures DMR width distributions and distribution summary tables}
+```{r make XY analysis DMR called width histograms}
 library("gt")
 
 
@@ -722,95 +839,6 @@ for(rs_index in result_set_ids){
 }
 
 
-
-### write csvs of percentile widths ###
-quants <- data.frame(percentile = numeric(), value = numeric(), method = character(), pars = character(), chrs = character())
-for(i in 1:length(built_layers)){
-  which <- which(built_layers[[i]]$chr == "chrX")
-  temp <- quantile(log10(built_layers[[i]]$stop_pos[which] - built_layers[[i]]$start_pos[which]), seq(0.01,1,by=0.01), type=1)
-  quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
-                                     method = "DMRscaler", pars = paste("DMRscaler_layer",i,sep = ""), chrs="chrX"))
-  which <- which(built_layers[[i]]$chr != "chrX" & built_layers[[i]]$chr != "chrY")
-  temp <- quantile(log10(built_layers[[i]]$stop_pos[which] - built_layers[[i]]$start_pos[which]), seq(0.01,1,by=0.01), type=1)
-  quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
-                                     method = "DMRscaler", pars = paste("DMRscaler_layer",i,sep = ""), chrs="Autosome"))
-}
-
-which <- which(bumps_default$table$chr == "chrX")
-temp <- quantile(log10(bumps_default$table$end[which] - bumps_default$table$start[which]), seq(0.01,1,by=0.01), type=1)
-quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
-                                      method = "bumphunter",pars="bumphunter_default", chrs="chrX"))
-which <- which(bumps_default$table$chr != "chrX" & bumps_default$table$chr != "chrY" )
-temp <- quantile(log10(bumps_default$table$end[which] - bumps_default$table$start[which]), seq(0.01,1,by=0.01), type=1)
-quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
-                                     method = "bumphunter",pars="bumphunter_default", chrs="Autosome"))
-
-which <- which(bumps_1Mb$table$chr == "chrX")
-temp <- quantile(log10(bumps_1Mb$table$end[which] - bumps_1Mb$table$start[which]), seq(0.01,1,by=0.01), type=1)
-quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
-                                     method = "bumphunter",pars="bumphunter:maxWidth=1Mb", chrs="chrX"))
-which <-  which(bumps_1Mb$table$chr != "chrX" & bumps_1Mb$table$chr != "chrY" )
-temp <- quantile(log10(bumps_1Mb$table$end[which] - bumps_1Mb$table$start[which]), seq(0.01,1,by=0.01), type=1)
-quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
-                                     method = "bumphunter",pars="bumphunter:maxWidth=1Mb", chrs="Autosome"))
-
-
-
-which <- which(combp_results_1k_100$X.chrom == "chrX")
-temp <- quantile(log10(combp_results_1k_100$end[which] - combp_results_1k_100$start[which]), seq(0.01,1,by=0.01), type=1)
-quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
-                                      method = "combp",pars="combp:dist=1kb,step=100bp", chrs="chrX"))
-which <- which(combp_results_1k_100$X.chrom != "chrX" & combp_results_1k_100$X.chrom != "chrY" )
-temp <- quantile(log10(combp_results_1k_100$end[which] - combp_results_1k_100$start[which]), seq(0.01,1,by=0.01), type=1)
-quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
-                                     method = "combp",pars="combp:dist=1kb,step=100bp", chrs="Autosome"))
-
-which <- which(combp_results_1M_100k$X.chrom == "chrX")
-temp <- quantile(log10(combp_results_1M_100k$end[which] - combp_results_1M_100k$start[which]), seq(0.01,1,by=0.01), type=1)
-quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
-                                      method = "combp",pars="combp:dist=1Mb,step=100kb", chrs="chrX"))
-which <- which(combp_results_1M_100k$X.chrom != "chrX" & combp_results_1M_100k$X.chrom != "chrY" )
-temp <- quantile(log10(combp_results_1M_100k$end[which] - combp_results_1M_100k$start[which]), seq(0.01,1,by=0.01), type=1)
-quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
-                                     method = "combp",pars="combp:dist=1Mb,step=100kb", chrs="Autosome"))
-
-
-
-
-which <- which(dmrcate_dmrs_default@seqnames == "chrX")
-temp <- quantile(log10(dmrcate_dmrs_default@ranges@width[which]), seq(0.01,1,by=0.01), type=1)
-quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
-                                     method = "DMRcate",pars="dmrcate_default", chrs="chrX"))
-which <-  which(dmrcate_dmrs_default@seqnames != "chrX" & dmrcate_dmrs_default@seqnames != "chrY" )
-temp <- quantile(log10(dmrcate_dmrs_default@ranges@width[which]), seq(0.01,1,by=0.01), type=1)
-quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
-                                     method = "DMRcate",pars="dmrcate_default", chrs="Autosome"))
-
-which <- which(dmrcate_dmrs_1M@seqnames == "chrX")
-temp <- quantile(log10(dmrcate_dmrs_1M@ranges@width[which]), seq(0.01,1,by=0.01), type=1)
-quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
-                                     method = "DMRcate",pars="dmrcate:lambda=1Mb,C=2000", chrs="chrX"))
-which <-  which(dmrcate_dmrs_1M@seqnames != "chrX" & dmrcate_dmrs_1M@seqnames != "chrY" )
-temp <- quantile(log10(dmrcate_dmrs_1M@ranges@width[which]), seq(0.01,1,by=0.01), type=1)
-quants <- rbind(quants, data.frame(percentile = seq(0.01,1,by=0.01), value = temp,
-                                     method = "DMRcate",pars="dmrcate:lambda=1Mb,C=2000", chrs="Autosome"))
-
-
-gg<-ggplot(quants, aes(x=percentile, y=value, color=pars))+
-  geom_line()+
-  ylab("-log10(Width)")+
-  facet_grid(rows = vars(chrs),cols = vars(method) )+
-  theme(text=element_text(size=18))
-
-filename=paste(results_dir, "/SEX_Width_Percentile_Plot.png", sep = "")
-png(filename = filename, width = 10, height = 6, units = "in", res = 240)
-grid.newpage()
-grid.arrange(gg, nrow=1)
-dev.off()  
-
-quants$width <- 10^quants$value
-filename=paste(results_dir, "/SEX_Width_Percentile.csv", sep = "")
-write.csv(file = filename, quants)
 
 ```
 
