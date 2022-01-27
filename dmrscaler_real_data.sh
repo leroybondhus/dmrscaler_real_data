@@ -28,8 +28,14 @@ echo " "
 
 # load the job environment:
 . /u/local/Modules/default/init/modules.sh
+
 ## Edit the line below as needed:
+module load bedtools/2.30.0
+module load anaconda3/2021.11
 module load R/4.1.0
+
+source $CONDA_DIR/etc/profile.d/conda.sh
+conda activate myconda
 
 DATA_SET_ID=$(expr 1 + $(expr $SGE_TASK_ID % $NUM_DATA_SETS ))
 METHOD_SET_ID=$(expr 1 + $(expr $SGE_TASK_ID / $NUM_DATA_SETS ))
