@@ -11,7 +11,7 @@ library(data.table)
 library(stringr)
 library(foreach)
 library(doParallel)
-registerDoParallel(detectCores())
+registerDoParallel(detectCores()-2)
 library(Gviz)
 library(ggplot2)
 library(gridExtra)
@@ -356,7 +356,6 @@ for(i in 1:nrow(data_set_regions_df)){
 
   plot(gglist[["signif_adj_plot"]])  
 
-  
   df_betas <- cbind("index" = 1:nrow(locs), locs, "mean"= rowMeans(B_sub[,g1]), "group"=data_set$g1g2_labels$g1 )
   df_betas <- rbind(df_betas, cbind("index" = 1:nrow(locs), locs, "mean" = rowMeans(B_sub[,g2]), "group"=data_set$g1g2_labels$g2))
                     
@@ -377,7 +376,6 @@ for(i in 1:nrow(data_set_regions_df)){
   )
   
   plot(gglist[["beta_raw_adj_plot"]])
-  
     
   df_betas <- cbind("index" = 1:nrow(locs), locs, "mean"= rowMeans(B_norm[,g1]), "group"=data_set$g1g2_labels$g1 )
   df_betas <- rbind(df_betas, cbind("index" = 1:nrow(locs), locs, "mean" = rowMeans(B_norm[, g2]), "group"=data_set$g1g2_labels$g2))
@@ -403,32 +401,46 @@ for(i in 1:nrow(data_set_regions_df)){
   
   
   ## is CG j in a DMR a level i
-  locs$dmr_layers <- 0
-  pos_gr <- GRanges(seqnames = locs$chr, ranges = IRanges(start = locs$pos, width = 1))
-  for(i in 1:length(built_layers)){
-    bl_gr <- GRanges(seqnames = built_layers[[i]]$chr, ranges = IRanges(start = built_layers[[i]]$start_pos, end = built_layers[[i]]$stop_pos))
-    locs$dmr_layers <- locs$dmr_layers + GenomicRanges::countOverlaps(pos_gr, bl_gr)
+  in_dmr_list <- list()
+  locs_gr <- GRanges(seqnames=locs$chr, IRanges(start=locs$pos, width=1))
+  for(rs_index in result_set_ids){
+    result_set <- data_set_results[[rs_index]]
+    if(grepl("dmrscaler", result_set$method)){
+      if(grepl("_2", result_set$method_id)){
+        in_dmr_list[[result_set$method]]$locs <- locs
+        in_dmr_list[[result_set$method]]$locs$in_dmr <- 0
+        for(l in 1:length(unique(result_set$grange$layer))){
+          which_in_layer <- which(result_set$grange$layer==unique(result_set$grange$layer)[l])
+          in_dmr_list[[result_set$method]]$locs$in_dmr <- in_dmr_list[[result_set$method]]$locs$in_dmr + 
+            countOverlaps(locs_gr, result_set$grange[which_in_layer])
+        }
+        in_dmr_list[[result_set$method]]$layer_names <- unique(result_set$grange$layer)
+      }
+    } else {
+      in_dmr_list[[result_set$method_id]]$locs <- locs
+      in_dmr_list[[result_set$method_id]]$locs$in_dmr <- countOverlaps(locs_gr, result_set$grange)
+    }
   }
   
-
-    temp <- cbind("index" = 1:length(which), locs[which,])
-    ggp_dmr_layers <- ggplot(temp)+
-  #  geom_line(aes(x=index, y=dmr_layers )) +
-  #  geom_point(aes(x=index, y=dmr_layers )) +
-    geom_bar(aes(x=index, y=dmr_layers, color=dmr_layers), fill="grey70",  stat="identity")+
-    scale_color_gradient(low="grey50", high = "grey50")+
-    scale_y_continuous(breaks = c(0,1,2,3,4,5), labels = c("none","64_CG_layer","32_CG_layer","16_CG_layer","8_CG_layer","4_CG_layer"))+
-    ylab("Layer") +
-    xlab("CG index over region") +
-    theme_bw()+
-    theme(
-      plot.background = element_blank(),
-      panel.grid.major = element_blank(),
-      panel.grid.minor = element_blank(),
-      text = element_text(size=12, color = "black"),
-      axis.text = element_text(size=12, color = "black"),
-      legend.position = "none"
-    )
+  
+  
+  
+  temp <- cbind("index" = 1:length(which), locs[which,])
+  ggp_dmr_layers <- ggplot(temp)+
+  geom_bar(aes(x=index, y=dmr_layers, color=dmr_layers), fill="grey70",  stat="identity")+
+  scale_color_gradient(low="grey50", high = "grey50")+
+  scale_y_continuous(breaks = c(0,1,2,3,4,5), labels = c("none","64_CG_layer","32_CG_layer","16_CG_layer","8_CG_layer","4_CG_layer"))+
+  ylab("Layer") +
+  xlab("CG index over region") +
+  theme_bw()+
+  theme(
+    plot.background = element_blank(),
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    text = element_text(size=12, color = "black"),
+    axis.text = element_text(size=12, color = "black"),
+    legend.position = "none"
+  )
   plot(ggp_dmr_layers)
 
   filename=paste(figures_dir"Adjacent_CG_plots_", chr,"_" ,start, "_", stop, ".png", sep = "")  
