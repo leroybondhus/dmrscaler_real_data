@@ -1131,7 +1131,7 @@ for(ds_index_1 in data_set_ids){
         temp_gr$gene_overlap_count <- countOverlaps(temp_gr, gene_ranges)
         
         
-        temp_range_overlap <- data.frame(layer=unique(result_set_1$grange$layer)[l],
+        temp_range_overlap <- data.frame(layer=result_set_1$method_id,
            datasets=paste(sort(c(result_set_1$data_set,
                                  result_set_2$data_set)),collapse="-"),
            seqnames=as.character(seqnames(temp_gr)),start=start(temp_gr), width=width(temp_gr),
