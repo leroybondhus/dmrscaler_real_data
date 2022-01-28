@@ -1010,12 +1010,24 @@ for(ds_index_1 in data_set_ids){
       method_set <- gsub("_result.csv","",method_set)
       rs_index_2 <- grep(paste("data_set_", ds_index_2,"__method_set_",
                                method_set, sep = ""), names(data_set_results))
-      gr_k <- data_set_results[[grep(paste("data_set_", grep("kat6a", names(data_set_list), ignore.case = T), 
-                         "__method_set_", method_set, sep = ""), names(data_set_results))]]$grange
-      gr_s <- data_set_results[[grep(paste("data_set_", grep("sotos", names(data_set_list), ignore.case = T), 
-                         "__method_set_", method_set, sep = ""), names(data_set_results))]]$grange
-      gr_w <- data_set_results[[grep(paste("data_set_", grep("weaver", names(data_set_list), ignore.case = T), 
-                         "__method_set_", method_set, sep = ""), names(data_set_results))]]$grange
+      if(length(rs_index_2)==0){next}
+      
+      which_dsr <- grep(paste("data_set_", grep("kat6a", names(data_set_list), ignore.case = T), 
+                         "__method_set_", method_set, sep = ""), names(data_set_results))
+      if(length(which_dsr)==0){gr_k <- GRanges()} else {
+        gr_k <- data_set_results[[which_dsr]]$grange  
+      }
+      which_dsr <- grep(paste("data_set_", grep("sotos", names(data_set_list), ignore.case = T), 
+                         "__method_set_", method_set, sep = ""), names(data_set_results))
+      if(length(which_dsr)==0){gr_s <- GRanges()} else {
+        gr_s <- data_set_results[[which_dsr]]$grange  
+      }
+      which_dsr <- grep(paste("data_set_", grep("weaver", names(data_set_list), ignore.case = T), 
+                         "__method_set_", method_set, sep = ""), names(data_set_results))
+      if(length(which_dsr)==0){gr_w <- GRanges()} else {
+        gr_w <- data_set_results[[which_dsr]]$grange  
+      }
+      
       result_set_2 <- data_set_results[[rs_index_2]]
       
       if(grepl("dmrscaler", result_set_1$method)){
@@ -1030,7 +1042,7 @@ for(ds_index_1 in data_set_ids){
             temp_geneset_overlaps <- syndrome_overlap_list[[result_set_1$method_id]]$geneset_overlaps
             which_1 <- which(result_set_1$grange$layer == unique(result_set_1$grange$layer)[l])
             which_2 <- which(result_set_2$grange$layer == unique(result_set_1$grange$layer)[l])
-            temp_geneset_overlaps <- rbind(temp_overlap_list$geneset_overlaps,
+            temp_geneset_overlaps <- rbind(temp_geneset_overlaps,
               data.frame( layer =  unique(result_set_1$grange$layer)[l],
                  overlap_between = paste(sort(c(result_set_1$data_set,
                                                 result_set_2$data_set)),
@@ -1047,7 +1059,9 @@ for(ds_index_1 in data_set_ids){
             
             temp_gr <- intersect(result_set_1$grange[which_1], result_set_2$grange[which_2])
             if(length(temp_gr)==0){
-              syndrome_overlap_list[[result_set_1$method_id]]$range_overlaps <- colnames(range_overlaps)
+              syndrome_overlap_list[[result_set_1$method_id]]$range_overlaps <-
+                rbind(syndrome_overlap_list[[result_set_1$method_id]]$range_overlaps,
+                      colnames(range_overlaps))
               next
             }
             temp_frac_dbsd <- frac_dbeta_same_dir(gr12 = temp_gr,
@@ -1095,7 +1109,7 @@ for(ds_index_1 in data_set_ids){
       } else {
         print(paste("method:",result_set_1$method_id))
         temp_geneset_overlaps <- syndrome_overlap_list[[result_set_1$method_id]]$geneset_overlaps
-        temp_geneset_overlaps <- rbind(temp_overlap_list$geneset_overlaps,
+        temp_geneset_overlaps <- rbind(temp_geneset_overlaps,
           data.frame( layer =  result_set_1$method_id,
              overlap_between = paste(sort(c(result_set_1$data_set,
                                             result_set_2$data_set)),
@@ -1112,7 +1126,9 @@ for(ds_index_1 in data_set_ids){
         
         temp_gr <- intersect(result_set_1$grange, result_set_2$grange)
         if(length(temp_gr)==0){
-          syndrome_overlap_list[[result_set_1$method_id]]$range_overlaps <- colnames(range_overlaps)
+          syndrome_overlap_list[[result_set_1$method_id]]$range_overlaps <-
+            rbind(syndrome_overlap_list[[result_set_1$method_id]]$range_overlaps,
+                  colnames(range_overlaps))
           next
         }
         temp_frac_dbsd <- frac_dbeta_same_dir(gr12 = temp_gr,
