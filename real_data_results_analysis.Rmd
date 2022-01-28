@@ -1035,10 +1035,10 @@ for(ds_index_1 in data_set_ids){
                  overlap_between = paste(sort(c(result_set_1$data_set,
                                                 result_set_2$data_set)),
                                          collapse="-"),
-                 gene = intersect(
+                 gene = c("",intersect(
                    unique(gene_ranges$gene_names[findOverlaps(result_set_1$grange[which_1], gene_ranges)@to]),
                    unique(gene_ranges$gene_names[findOverlaps(result_set_2$grange[which_2], gene_ranges)@to])
-                 )
+                 ))
               )
             )
             syndrome_overlap_list[[result_set_1$method_id]]$geneset_overlaps <- temp_geneset_overlaps
@@ -1046,6 +1046,10 @@ for(ds_index_1 in data_set_ids){
             
             
             temp_gr <- intersect(result_set_1$grange[which_1], result_set_2$grange[which_2])
+            if(length(temp_gr)==0){
+              syndrome_overlap_list[[result_set_1$method_id]]$range_overlaps <- colnames(range_overlaps)
+              next
+            }
             temp_frac_dbsd <- frac_dbeta_same_dir(gr12 = temp_gr,
                                 B1 = data_set_list[[result_set_1$data_set]]$B,
                                 atom1 = data_set_list[[result_set_1$data_set]]$locs,
@@ -1070,8 +1074,9 @@ for(ds_index_1 in data_set_ids){
             temp_gr <- GRanges(temp_gr)
             temp_gr$gene_overlap_count <- countOverlaps(temp_gr, gene_ranges)
             
-            
-            temp_range_overlap <- data.frame(layer=unique(result_set_1$grange$layer)[l],
+            temp_range_overlap <- syndrome_overlap_list[[result_set_1$method_id]]$range_overlaps
+            temp_range_overlap <- rbind(temp_range_overlap,
+              data.frame(layer=unique(result_set_1$grange$layer)[l],
                datasets=paste(sort(c(result_set_1$data_set,
                                      result_set_2$data_set)),collapse="-"),
                seqnames=as.character(seqnames(temp_gr)),start=start(temp_gr), width=width(temp_gr),
@@ -1081,7 +1086,7 @@ for(ds_index_1 in data_set_ids){
                frac_sig_same_dir= temp_frac_dbsd$frac_sig_same_dir,
                frac_shared_kat6a = frac_A_in_B(temp_gr,temp_gr_k),
                frac_shared_sotos = frac_A_in_B(temp_gr,temp_gr_s),
-               frac_shared_weaver = frac_A_in_B(temp_gr,temp_gr_w))
+               frac_shared_weaver = frac_A_in_B(temp_gr,temp_gr_w)))
             
             
             syndrome_overlap_list[[result_set_1$method_id]]$range_overlaps <- temp_range_overlap
@@ -1095,10 +1100,10 @@ for(ds_index_1 in data_set_ids){
              overlap_between = paste(sort(c(result_set_1$data_set,
                                             result_set_2$data_set)),
                                      collapse="-"),
-             gene = intersect(
+             gene = c("",intersect(
                unique(gene_ranges$gene_names[findOverlaps(result_set_1$grange, gene_ranges)@to]),
                unique(gene_ranges$gene_names[findOverlaps(result_set_2$grange, gene_ranges)@to])
-             )
+             ))
           )
         )
         syndrome_overlap_list[[result_set_1$method_id]]$geneset_overlaps <- temp_geneset_overlaps
@@ -1106,6 +1111,10 @@ for(ds_index_1 in data_set_ids){
         
         
         temp_gr <- intersect(result_set_1$grange, result_set_2$grange)
+        if(length(temp_gr)==0){
+          syndrome_overlap_list[[result_set_1$method_id]]$range_overlaps <- colnames(range_overlaps)
+          next
+        }
         temp_frac_dbsd <- frac_dbeta_same_dir(gr12 = temp_gr,
                             B1 = data_set_list[[result_set_1$data_set]]$B,
                             atom1 = data_set_list[[result_set_1$data_set]]$locs,
@@ -1130,19 +1139,20 @@ for(ds_index_1 in data_set_ids){
         temp_gr <- GRanges(temp_gr)
         temp_gr$gene_overlap_count <- countOverlaps(temp_gr, gene_ranges)
         
-        
-        temp_range_overlap <- data.frame(layer=result_set_1$method_id,
-           datasets=paste(sort(c(result_set_1$data_set,
-                                 result_set_2$data_set)),collapse="-"),
-           seqnames=as.character(seqnames(temp_gr)),start=start(temp_gr), width=width(temp_gr),
-           overlapping_genes=temp_gr$overlapping_genes, gene_overlap_count=temp_gr$gene_overlap_count,
-           num_cg_sig= temp_frac_dbsd$num_sig,
-           frac_shared_sig= temp_frac_dbsd$frac_shared_sig,
-           frac_sig_same_dir= temp_frac_dbsd$frac_sig_same_dir,
-           frac_shared_kat6a = frac_A_in_B(temp_gr,gr_k),
-           frac_shared_sotos = frac_A_in_B(temp_gr,gr_s),
-           frac_shared_weaver = frac_A_in_B(temp_gr,gr_w))
-        
+        temp_range_overlap <- syndrome_overlap_list[[result_set_1$method_id]]$range_overlaps
+            temp_range_overlap <- rbind(temp_range_overlap,
+              data.frame(layer=result_set_1$method_id,
+                   datasets=paste(sort(c(result_set_1$data_set,
+                                         result_set_2$data_set)),collapse="-"),
+                   seqnames=as.character(seqnames(temp_gr)),start=start(temp_gr), width=width(temp_gr),
+                   overlapping_genes=temp_gr$overlapping_genes, gene_overlap_count=temp_gr$gene_overlap_count,
+                   num_cg_sig= temp_frac_dbsd$num_sig,
+                   frac_shared_sig= temp_frac_dbsd$frac_shared_sig,
+                   frac_sig_same_dir= temp_frac_dbsd$frac_sig_same_dir,
+                   frac_shared_kat6a = frac_A_in_B(temp_gr,gr_k),
+                   frac_shared_sotos = frac_A_in_B(temp_gr,gr_s),
+                   frac_shared_weaver = frac_A_in_B(temp_gr,gr_w)))
+                
         
         syndrome_overlap_list[[result_set_1$method_id]]$range_overlaps <- temp_range_overlap
     
