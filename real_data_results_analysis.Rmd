@@ -927,7 +927,24 @@ frac_dbeta_same_dir <- function(gr12, B1, atom1, case1, B2, case2, atom2, sigcut
 
 frac_A_in_B <- function(gr1,gr2){
   which <- findOverlaps(gr1,gr2)@from
-  frac_a_in_b <- numeric(length=length(gr1))
+  frac_a_in_b <- rep(0,length(gr1))
+  
+  temp_int_gr <- intersect(gr1, gr2)
+  temp_ovs <- findOverlaps(gr1, temp_int_gr)
+  
+  froms <- temp_ovs@from
+  tos <- temp_ovs@to
+  
+  gr1 <- as.data.frame(gr1)
+  gr2 <- as.data.frame(gr2)
+  temp_int_gr <- as.data.frame(temp_int_gr)
+  for(i in 1:length(unique(froms))){
+    frac_a_in_b[froms[i]] <- 
+      sum(temp_int_gr$width[tos[which(froms==(unique(froms)[i]) )] ]) / 
+      sum(gr1$width[froms[which(froms==unique(froms)[i]) ]]  )
+      
+  }
+  
   for(i in 1:length(gr1)){
     if(is.element(i,which)){
       frac_a_in_b[i] <- sum(width(intersect(gr1[i],gr2)))/width(gr1[i])
