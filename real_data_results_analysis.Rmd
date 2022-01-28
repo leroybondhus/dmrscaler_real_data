@@ -53,6 +53,7 @@ for(data_set_id in 1:length(data_set_list)){
     filename <- filenames[grep(paste("data_set_",data_set_id,
                                      "__method_set_",method_id,
                                      sep=""), filenames)]
+    if(length(filename)==0){next}
     result <- fread(filename)
     # if(method_set_list[[method_id]]$method=="dmrscaler"){
     #   result <- result[grep("64",result$layer),]
@@ -945,6 +946,7 @@ genes <- genes[which(genes$gene_source=="ensembl_havana"),]
 genes <- genes[which(genes$type=="gene" ),]
 genes <- genes[,!(colSums(!is.na(genes))==0)]
 gene_ranges <- GRanges(seqnames = genes$seqnames, IRanges(start = genes$start, width = genes$width))
+gene_ranges$gene_names <- genes$gene_name
 
 
 geneset_overlaps = data.frame(layer=numeric(),
@@ -960,6 +962,26 @@ range_overlaps <- data.frame(layer=numeric(), datasets=character(),
                              frac_shared_kat6a = numeric(),
                              frac_shared_sotos = numeric(),
                              frac_shared_weaver = numeric() ) 
+
+
+for(dsr_index in 1:length(data_set_results)){
+  print(dsr_index)
+  temp_gr <- data_set_results[[dsr_index]]$grange
+  temp_gr$overlapping_genes <- ""
+  temp_gr$gene_overlap_count <- ""
+  
+  temp <- findOverlaps(temp_gr, gene_ranges)
+  froms <- unique(temp@from)
+  temp_genes <- gene_ranges$gene_names[temp@to]
+  temp_gr <- as.data.frame(temp_gr)  ### NOTE: much faster if convert to df first -> grange ops are slow in loop
+  
+  for(i in 1:length(froms)){
+    temp_gr$overlapping_genes[froms[i]] <- paste(temp_genes[which(temp@from==froms[i])], collapse = ",")
+  }
+  temp_gr <- GRanges(temp_gr)
+  temp_gr$gene_overlap_count <- countOverlaps(temp_gr, gene_ranges)
+  data_set_results[[dsr_index]]$grange <- temp_gr
+}
 
 
 
