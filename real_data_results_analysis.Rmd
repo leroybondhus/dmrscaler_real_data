@@ -1064,13 +1064,19 @@ for(ds_index_1 in data_set_ids){
                       colnames(range_overlaps))
               next
             }
+            B1inB2 <- is.element(rownames(data_set_list[[result_set_1$data_set]]$B),
+                                 rownames(data_set_list[[result_set_2$data_set]]$B)
+                                 )
+            B2inB1 <- is.element(rownames(data_set_list[[result_set_2$data_set]]$B),
+                                 rownames(data_set_list[[result_set_1$data_set]]$B)
+                                 )
             temp_frac_dbsd <- frac_dbeta_same_dir(gr12 = temp_gr,
-                                B1 = data_set_list[[result_set_1$data_set]]$B,
-                                atom1 = data_set_list[[result_set_1$data_set]]$locs,
+                                B1 = data_set_list[[result_set_1$data_set]]$B[which(B1inB2),],
+                                atom1 = data_set_list[[result_set_1$data_set]]$locs[which(B1inB2),],
                                 case1 = which(is.element( colnames(data_set_list[[result_set_1$data_set]]$B),
                                                        data_set_list[[result_set_1$data_set]]$g2)),
-                                B2= data_set_list[[result_set_2$data_set]]$B,
-                                atom2 = data_set_list[[result_set_2$data_set]]$locs,
+                                B2= data_set_list[[result_set_2$data_set]]$B[which(B2inB1),],
+                                atom2 = data_set_list[[result_set_2$data_set]]$locs[which(B2inB1),],
                                 case2 = which(is.element( colnames(data_set_list[[result_set_2$data_set]]$B),
                                                        data_set_list[[result_set_2$data_set]]$g2)),
                                 sigcut=0.05
@@ -1131,13 +1137,19 @@ for(ds_index_1 in data_set_ids){
                   colnames(range_overlaps))
           next
         }
+        B1inB2 <- is.element(rownames(data_set_list[[result_set_1$data_set]]$B),
+                                 rownames(data_set_list[[result_set_2$data_set]]$B)
+                                 )
+        B2inB1 <- is.element(rownames(data_set_list[[result_set_2$data_set]]$B),
+                                 rownames(data_set_list[[result_set_1$data_set]]$B)
+                                 )
         temp_frac_dbsd <- frac_dbeta_same_dir(gr12 = temp_gr,
-                            B1 = data_set_list[[result_set_1$data_set]]$B,
-                            atom1 = data_set_list[[result_set_1$data_set]]$locs,
+                            B1 = data_set_list[[result_set_1$data_set]]$B[which(B1inB2),],
+                            atom1 = data_set_list[[result_set_1$data_set]]$locs[which(B1inB2),],
                             case1 = which(is.element( colnames(data_set_list[[result_set_1$data_set]]$B),
                                                    data_set_list[[result_set_1$data_set]]$g2)),
-                            B2= data_set_list[[result_set_2$data_set]]$B,
-                            atom2 = data_set_list[[result_set_2$data_set]]$locs,
+                            B2= data_set_list[[result_set_2$data_set]]$B[which(B2inB1),],
+                            atom2 = data_set_list[[result_set_2$data_set]]$locs[which(B2inB1),],
                             case2 = which(is.element( colnames(data_set_list[[result_set_2$data_set]]$B),
                                                    data_set_list[[result_set_2$data_set]]$g2)),
                             sigcut=0.05
