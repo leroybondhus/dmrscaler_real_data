@@ -945,14 +945,6 @@ frac_A_in_B <- function(gr1,gr2){
       
   }
   
-  for(i in 1:length(gr1)){
-    if(is.element(i,which)){
-      frac_a_in_b[i] <- sum(width(intersect(gr1[i],gr2)))/width(gr1[i])
-    }
-    else{
-      frac_a_in_b[i] <- 0
-    }
-  }
   return(frac_a_in_b)
 }
 ```
@@ -1029,6 +1021,11 @@ for(ds_index_1 in data_set_ids){
       if(grepl("dmrscaler", result_set_1$method)){
         if(grepl("_1", result_set_1$method_id)){
           for(l in 1:length(unique(result_set_1$grange$layer))){
+            temp_gr_k <- gr_k[which(gr_k$layer==unique(result_set_1$grange$layer)[l])] 
+            temp_gr_s <- gr_s[which(gr_s$layer==unique(result_set_1$grange$layer)[l])] 
+            temp_gr_w <- gr_w[which(gr_w$layer==unique(result_set_1$grange$layer)[l])]
+            
+            
             print(paste("layer:",l))
             temp_geneset_overlaps <- syndrome_overlap_list[[result_set_1$method_id]]$geneset_overlaps
             which_1 <- which(result_set_1$grange$layer == unique(result_set_1$grange$layer)[l])
@@ -1082,9 +1079,9 @@ for(ds_index_1 in data_set_ids){
                num_cg_sig= temp_frac_dbsd$num_sig,
                frac_shared_sig= temp_frac_dbsd$frac_shared_sig,
                frac_sig_same_dir= temp_frac_dbsd$frac_sig_same_dir,
-               frac_shared_kat6a = frac_A_in_B(temp_gr,gr_k),
-               frac_shared_sotos = frac_A_in_B(temp_gr,gr_s),
-               frac_shared_weaver = frac_A_in_B(temp_gr,gr_w))
+               frac_shared_kat6a = frac_A_in_B(temp_gr,temp_gr_k),
+               frac_shared_sotos = frac_A_in_B(temp_gr,temp_gr_s),
+               frac_shared_weaver = frac_A_in_B(temp_gr,temp_gr_w))
             
             
             syndrome_overlap_list[[result_set_1$method_id]]$range_overlaps <- temp_range_overlap
