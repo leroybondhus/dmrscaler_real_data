@@ -62,9 +62,9 @@ if(grepl("dmrscaler", method_name, ignore.case = TRUE)){
   colnames(design)<- c("(Intercept)","(Intercept)")
   M <- log2(B / (1-(B)) )
   if(nrow(locs) < 500e3){
-    myannotation <- cpg.annotate("array", object=M, what="M", arraytype = "450K", analysis.type = "differential", design = design,  coef = 2)
+    myannotation <- cpg.annotate("array", object=M, what="M", arraytype = "450K", analysis.type = "differential", design = design,  coef = 2, fdr=0.1)
   } else {
-    myannotation <- cpg.annotate("array", object=M, what="M", arraytype = "EPIC", analysis.type = "differential", design = design,  coef = 2)
+    myannotation <- cpg.annotate("array", object=M, what="M", arraytype = "EPIC", analysis.type = "differential", design = design,  coef = 2, fdr=0.1)
   }
 
 
