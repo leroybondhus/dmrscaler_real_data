@@ -212,7 +212,6 @@ genes<-cbind(genes, width=as.numeric(as.character(gtf_df$width)), strand=gtf_df$
 genes$start<-as.numeric(as.character(genes$start))
 genes$end<-as.numeric(as.character(genes$end))
 
-
 ```
 
 ```{r, fig.height=9}
@@ -885,11 +884,6 @@ for(rs_index in result_set_ids){
 
 
 
-
-
-
-
-
 ```{r funcs for kws overlap analysis}
 
 frac_dbeta_same_dir <- function(gr12, B1, atom1, case1, B2, case2, atom2, sigcut){
@@ -1260,5 +1254,250 @@ for(ds_index_1 in data_set_ids){
 
 
 ```
+
+
+
+```{r XY sex analysis escape from xci}
+
+or_df_model <- data.frame(layer=numeric(), datasets=character(),
+                          or_estimate=numeric(), or_ci=character(),
+                          fisher_p=numeric(), alpha=numeric())
+
+
+balaton_xci_escape <- fread("balaton_xci_escape.csv")
+balaton_xci_escape <- balaton_xci_escape[which(is.element(balaton_xci_escape$gene_name, genes$gene_name)),]
+balaton_xci_escape_genes <- genes[which(is.element(genes$gene_name, balaton_xci_escape$gene_name ) & genes$seqnames=="chrX"),]      
+balaton_xci_escape_genes <- merge(balaton_xci_escape_genes, balaton_xci_escape)
+balaton_xci_escape_genes_gr <- GRanges(balaton_xci_escape_genes)
+
+ds_index <- grep("Sex", names(data_set_list))
+result_set_ids <- grep(paste("data_set_", ds_index, sep = ""), names(data_set_results))
+for(rs_index in result_set_ids){
+  result_set <- data_set_results[[rs_index]] 
+  method_set_id <- gsub("data_set.*method_set_", "", names(data_set_results)[rs_index])
+  method_set_id <- gsub("_result.csv","",method_set_id)
+  
+  if(grepl("dmrscaler", result_set$method)){
+      if(grepl("_1", result_set$method_id)){
+        for(l in 1:length(unique(result_set$grange$layer))){
+          
+          print(paste("layer:",l))
+          which_in_layer <- which(result_set$grange$layer == unique(result_set$grange$layer)[l])
+          
+          called_gr <- result_set$grange[which_in_layer]
+          called_gr_gaps <- gaps(called_gr)
+          
+          locs_gr <- result_set$locs_grs
+          
+          
+        }
+      }
+  } else {
+    
+  }
+  
+}
+
+
+      
+      if(grepl("dmrscaler", result_set_1$method)){
+        if(grepl("_1", result_set_1$method_id)){
+          for(l in 1:length(unique(result_set_1$grange$layer))){
+            temp_gr_k <- gr_k[which(gr_k$layer==unique(result_set_1$grange$layer)[l])] 
+            temp_gr_s <- gr_s[which(gr_s$layer==unique(result_set_1$grange$layer)[l])] 
+            temp_gr_w <- gr_w[which(gr_w$layer==unique(result_set_1$grange$layer)[l])]
+            
+            
+            print(paste("layer:",l))
+            temp_geneset_overlaps <- syndrome_overlap_list[[result_set_1$method_id]]$geneset_overlaps
+            which_1 <- which(result_set_1$grange$layer == unique(result_set_1$grange$layer)[l])
+            which_2 <- which(result_set_2$grange$layer == unique(result_set_1$grange$layer)[l])
+            temp_geneset_overlaps <- rbind(temp_geneset_overlaps,
+              data.frame( layer =  unique(result_set_1$grange$layer)[l],
+                 overlap_between = paste(sort(c(result_set_1$data_set,
+                                                result_set_2$data_set)),
+                                         collapse="-"),
+                 gene = c("",intersect(
+                   unique(gene_ranges$gene_names[findOverlaps(result_set_1$grange[which_1], gene_ranges)@to]),
+                   unique(gene_ranges$gene_names[findOverlaps(result_set_2$grange[which_2], gene_ranges)@to])
+                 ))
+              )
+            )
+            syndrome_overlap_list[[result_set_1$method_id]]$geneset_overlaps <- temp_geneset_overlaps
+            
+            
+            
+            temp_gr <- intersect(result_set_1$grange[which_1], result_set_2$grange[which_2])
+            if(length(temp_gr)==0){
+              syndrome_overlap_list[[result_set_1$method_id]]$range_overlaps <-
+                rbind(syndrome_overlap_list[[result_set_1$method_id]]$range_overlaps,
+                      colnames(range_overlaps))
+              next
+            }
+            B1inB2 <- is.element(rownames(data_set_list[[result_set_1$data_set]]$B),
+                                 rownames(data_set_list[[result_set_2$data_set]]$B)
+                                 )
+            B2inB1 <- is.element(rownames(data_set_list[[result_set_2$data_set]]$B),
+                                 rownames(data_set_list[[result_set_1$data_set]]$B)
+                                 )
+            temp_frac_dbsd <- frac_dbeta_same_dir(gr12 = temp_gr,
+                                B1 = data_set_list[[result_set_1$data_set]]$B[which(B1inB2),],
+                                atom1 = data_set_list[[result_set_1$data_set]]$locs[which(B1inB2),],
+                                case1 = which(is.element( colnames(data_set_list[[result_set_1$data_set]]$B),
+                                                       data_set_list[[result_set_1$data_set]]$g2)),
+                                B2= data_set_list[[result_set_2$data_set]]$B[which(B2inB1),],
+                                atom2 = data_set_list[[result_set_2$data_set]]$locs[which(B2inB1),],
+                                case2 = which(is.element( colnames(data_set_list[[result_set_2$data_set]]$B),
+                                                       data_set_list[[result_set_2$data_set]]$g2)),
+                                sigcut=0.05
+                                )
+            temp_fo <- findOverlaps(temp_gr, gene_ranges)
+            froms <- unique(temp_fo@from)
+            temp_genes <- gene_ranges$gene_names[temp_fo@to]
+            temp_gr <- as.data.frame(temp_gr)
+            temp_gr$overlapping_genes <- ""
+            temp_gr$overlap <- ""
+            for(i in 1:length(froms)){
+              temp_gr$overlapping_genes[froms[i]] <- paste(temp_genes[which(temp_fo@from==froms[i])],
+                                                           collapse = ",")
+            }
+            temp_gr <- GRanges(temp_gr)
+            temp_gr$gene_overlap_count <- countOverlaps(temp_gr, gene_ranges)
+            
+            temp_range_overlap <- syndrome_overlap_list[[result_set_1$method_id]]$range_overlaps
+            temp_range_overlap <- rbind(temp_range_overlap,
+              data.frame(layer=unique(result_set_1$grange$layer)[l],
+               datasets=paste(sort(c(result_set_1$data_set,
+                                     result_set_2$data_set)),collapse="-"),
+               seqnames=as.character(seqnames(temp_gr)),start=start(temp_gr), width=width(temp_gr),
+               overlapping_genes=temp_gr$overlapping_genes, gene_overlap_count=temp_gr$gene_overlap_count,
+               num_cg_sig= temp_frac_dbsd$num_sig,
+               frac_shared_sig= temp_frac_dbsd$frac_shared_sig,
+               frac_sig_same_dir= temp_frac_dbsd$frac_sig_same_dir,
+               frac_shared_kat6a = frac_A_in_B(temp_gr,temp_gr_k),
+               frac_shared_sotos = frac_A_in_B(temp_gr,temp_gr_s),
+               frac_shared_weaver = frac_A_in_B(temp_gr,temp_gr_w)))
+            
+            syndrome_overlap_list[[result_set_1$method_id]]$range_overlaps <- temp_range_overlap
+            
+            
+            cg_1 <- unique(findOverlaps(result_set_1$locs_grs[B1inB2], result_set_1$grange[which_1])@from)
+            cg_2 <- unique(findOverlaps(result_set_2$locs_grs[B2inB1], result_set_2$grange[which_2])@from)
+            cg_12 <- intersect(cg_1,cg_2)
+            
+            temp_or_table <- syndrome_overlap_list[[result_set_1$method_id]]$or_table
+            temp_or_table <- rbind(temp_or_table,
+                                   data.frame(cbind(layer=unique(result_set_1$grange$layer)[l],
+                                                    datasets=paste(sort(c(result_set_1$data_set,
+                                                                          result_set_2$data_set)),collapse="-"),
+                                                    syn_or(cg_1,cg_2,length(result_set_1$locs_grs[B1inB2]))
+                                   )
+                                   )
+            )
+            
+            syndrome_overlap_list[[result_set_1$method_id]]$or_table <- temp_or_table
+            
+          }
+        }
+      } else {
+        print(paste("method:",result_set_1$method_id))
+        temp_geneset_overlaps <- syndrome_overlap_list[[result_set_1$method_id]]$geneset_overlaps
+        temp_geneset_overlaps <- rbind(temp_geneset_overlaps,
+          data.frame( layer =  result_set_1$method_id,
+             overlap_between = paste(sort(c(result_set_1$data_set,
+                                            result_set_2$data_set)),
+                                     collapse="-"),
+             gene = c("",intersect(
+               unique(gene_ranges$gene_names[findOverlaps(result_set_1$grange, gene_ranges)@to]),
+               unique(gene_ranges$gene_names[findOverlaps(result_set_2$grange, gene_ranges)@to])
+             ))
+          )
+        )
+        syndrome_overlap_list[[result_set_1$method_id]]$geneset_overlaps <- temp_geneset_overlaps
+        
+        
+        
+        temp_gr <- intersect(result_set_1$grange, result_set_2$grange)
+        if(length(temp_gr)==0){
+          syndrome_overlap_list[[result_set_1$method_id]]$range_overlaps <-
+            rbind(syndrome_overlap_list[[result_set_1$method_id]]$range_overlaps,
+                  colnames(range_overlaps))
+          next
+        }
+        B1inB2 <- is.element(rownames(data_set_list[[result_set_1$data_set]]$B),
+                                 rownames(data_set_list[[result_set_2$data_set]]$B)
+                                 )
+        B2inB1 <- is.element(rownames(data_set_list[[result_set_2$data_set]]$B),
+                                 rownames(data_set_list[[result_set_1$data_set]]$B)
+                                 )
+        temp_frac_dbsd <- frac_dbeta_same_dir(gr12 = temp_gr,
+                            B1 = data_set_list[[result_set_1$data_set]]$B[which(B1inB2),],
+                            atom1 = data_set_list[[result_set_1$data_set]]$locs[which(B1inB2),],
+                            case1 = which(is.element( colnames(data_set_list[[result_set_1$data_set]]$B),
+                                                   data_set_list[[result_set_1$data_set]]$g2)),
+                            B2= data_set_list[[result_set_2$data_set]]$B[which(B2inB1),],
+                            atom2 = data_set_list[[result_set_2$data_set]]$locs[which(B2inB1),],
+                            case2 = which(is.element( colnames(data_set_list[[result_set_2$data_set]]$B),
+                                                   data_set_list[[result_set_2$data_set]]$g2)),
+                            sigcut=0.05
+                            )
+        temp_fo <- findOverlaps(temp_gr, gene_ranges)
+        froms <- unique(temp_fo@from)
+        temp_genes <- gene_ranges$gene_names[temp_fo@to]
+        temp_gr <- as.data.frame(temp_gr)
+        temp_gr$overlapping_genes <- ""
+        temp_gr$overlap <- ""
+        for(i in 1:length(froms)){
+          temp_gr$overlapping_genes[froms[i]] <- paste(temp_genes[which(temp_fo@from==froms[i])],
+                                                       collapse = ",")
+        }
+        temp_gr <- GRanges(temp_gr)
+        temp_gr$gene_overlap_count <- countOverlaps(temp_gr, gene_ranges)
+        
+        temp_range_overlap <- syndrome_overlap_list[[result_set_1$method_id]]$range_overlaps
+            temp_range_overlap <- rbind(temp_range_overlap,
+              data.frame(layer=result_set_1$method_id,
+                   datasets=paste(sort(c(result_set_1$data_set,
+                                         result_set_2$data_set)),collapse="-"),
+                   seqnames=as.character(seqnames(temp_gr)),start=start(temp_gr), width=width(temp_gr),
+                   overlapping_genes=temp_gr$overlapping_genes, gene_overlap_count=temp_gr$gene_overlap_count,
+                   num_cg_sig= temp_frac_dbsd$num_sig,
+                   frac_shared_sig= temp_frac_dbsd$frac_shared_sig,
+                   frac_sig_same_dir= temp_frac_dbsd$frac_sig_same_dir,
+                   frac_shared_kat6a = frac_A_in_B(temp_gr,gr_k),
+                   frac_shared_sotos = frac_A_in_B(temp_gr,gr_s),
+                   frac_shared_weaver = frac_A_in_B(temp_gr,gr_w)))
+                
+        syndrome_overlap_list[[result_set_1$method_id]]$range_overlaps <- temp_range_overlap
+        
+        
+        
+        
+        cg_1 <- unique(findOverlaps(result_set_1$locs_grs[B1inB2], result_set_1$grange)@from)
+        cg_2 <- unique(findOverlaps(result_set_2$locs_grs[B2inB1], result_set_2$grange)@from)
+        cg_12 <- intersect(cg_1,cg_2)
+        
+        temp_or_table <- syndrome_overlap_list[[result_set_1$method_id]]$or_table
+        temp_or_table <- rbind(temp_or_table,
+                               data.frame(cbind(layer=result_set_1$method_id,
+                                                datasets=paste(sort(c(result_set_1$data_set,
+                                                                      result_set_2$data_set)),collapse="-"),
+                                                syn_or(cg_1,cg_2,length(result_set_1$locs_grs[B1inB2]))
+                               )
+                               )
+        )
+        
+        syndrome_overlap_list[[result_set_1$method_id]]$or_table <- temp_or_table
+        
+        
+        
+      }
+    }
+  }
+}
+
+
+```
+
 
 
