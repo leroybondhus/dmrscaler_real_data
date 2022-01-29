@@ -947,6 +947,29 @@ frac_A_in_B <- function(gr1,gr2){
   
   return(frac_a_in_b)
 }
+
+
+syn_or <- function(cg1, cg2, nt, alpha_=0.05){
+  df <- data.frame(or_estimate=1,or_ci="",fisher_p=1, alpha=alpha_)
+  cg12 <- length(intersect(cg1,cg2))
+  cg_n1_y2 <- length(cg2) - cg12
+  cg_n2_y1 <- length(cg1) - cg12
+  cg_n12 <- nt - cg12 - cg_n1_y2 - cg_n2_y1
+  df$or_estimate <- round((cg12 * cg_n12) / (cg_n1_y2 * cg_n2_y1),2)
+  
+  log_or <- log((cg12 * cg_n12) / (cg_n1_y2 * cg_n2_y1))
+  se_log_oe <-  sqrt(1/cg12 + 1/cg_n1_y2 + 1/cg_n2_y1 + 1/cg_n12)
+  left <-  log_or - qnorm(1-alpha_/2)*se_log_oe
+  right <-  log_or + qnorm(1-alpha_/2)*se_log_oe
+  df$or_ci <- paste(round(exp(left),2), "-",round(exp(right),2),sep = "")
+  
+  df$fisher_p <- fisher.test(matrix(c(cg12,cg_n1_y2, cg_n2_y1, cg_n12),ncol=2))$p.value
+
+  return(df)
+}
+
+
+
 ```
 
 ```{r kat6a-weaver-sotos overlap analysis}
@@ -970,11 +993,16 @@ range_overlaps <- data.frame(layer=numeric(), datasets=character(),
                              frac_sig_same_dir = numeric(),
                              frac_shared_kat6a = numeric(),
                              frac_shared_sotos = numeric(),
-                             frac_shared_weaver = numeric() ) 
+                             frac_shared_weaver = numeric() )
+or_df_model <- data.frame(layer=numeric(), datasets=character(),
+                          or_estimate=numeric(), or_ci=character(),
+                          fisher_p=numeric(), alpha=numeric())
+
 syndrome_overlap_list <- list()
 for(i in 1:length(method_set_list)){
   syndrome_overlap_list[[ names(method_set_list)[i] ]] <- list(geneset_overlaps = geneset_overlaps,
-                                                      range_overlaps = range_overlaps) 
+                                                               range_overlaps = range_overlaps,
+                                                               or_table =or_df_model) 
 }
 
 for(dsr_index in 1:length(data_set_results)){
@@ -1108,8 +1136,25 @@ for(ds_index_1 in data_set_ids){
                frac_shared_sotos = frac_A_in_B(temp_gr,temp_gr_s),
                frac_shared_weaver = frac_A_in_B(temp_gr,temp_gr_w)))
             
-            
             syndrome_overlap_list[[result_set_1$method_id]]$range_overlaps <- temp_range_overlap
+            
+            
+            cg_1 <- unique(findOverlaps(result_set_1$locs_grs[B1inB2], result_set_1$grange[which_1])@from)
+            cg_2 <- unique(findOverlaps(result_set_2$locs_grs[B2inB1], result_set_2$grange[which_2])@from)
+            cg_12 <- intersect(cg_1,cg_2)
+            
+            temp_or_table <- syndrome_overlap_list[[result_set_1$method_id]]$or_table
+            temp_or_table <- rbind(temp_or_table,
+                                   data.frame(cbind(layer=unique(result_set_1$grange$layer)[l],
+                                                    datasets=paste(sort(c(result_set_1$data_set,
+                                                                          result_set_2$data_set)),collapse="-"),
+                                                    syn_or(cg_1,cg_2,length(result_set_1$locs_grs[B1inB2]))
+                                   )
+                                   )
+            )
+            
+            syndrome_overlap_list[[result_set_1$method_id]]$or_table <- temp_or_table
+            
           }
         }
       } else {
@@ -1182,122 +1227,37 @@ for(ds_index_1 in data_set_ids){
                    frac_shared_weaver = frac_A_in_B(temp_gr,gr_w)))
                 
         syndrome_overlap_list[[result_set_1$method_id]]$range_overlaps <- temp_range_overlap
-    
+        
+        
+        
+        
+        cg_1 <- unique(findOverlaps(result_set_1$locs_grs[B1inB2], result_set_1$grange)@from)
+        cg_2 <- unique(findOverlaps(result_set_2$locs_grs[B2inB1], result_set_2$grange)@from)
+        cg_12 <- intersect(cg_1,cg_2)
+        
+        temp_or_table <- syndrome_overlap_list[[result_set_1$method_id]]$or_table
+        temp_or_table <- rbind(temp_or_table,
+                               data.frame(cbind(layer=result_set_1$method_id,
+                                                datasets=paste(sort(c(result_set_1$data_set,
+                                                                      result_set_2$data_set)),collapse="-"),
+                                                syn_or(cg_1,cg_2,length(result_set_1$locs_grs[B1inB2]))
+                               )
+                               )
+        )
+        
+        syndrome_overlap_list[[result_set_1$method_id]]$or_table <- temp_or_table
+        
+        
+        
       }
     }
   }
 }
 
 
-```
-
-```{r syndrome overlaps}
-
-##calculate odds ratios
-library("epitools")
-library(ggplot2)
-library(dplyr)
-##
-
-hist(atom_KAT6A$scoring_values)
-hist(atom_Sotos$scoring_values)
-hist(atom_Weaver$scoring_values)
 
 
-cg_grs <- GRanges(seqnames = atomic_layer$chr,
-                  ranges = IRanges( start = atomic_layer$pos, width = 1))
 
-syndrome_cg_overlaps <- matrix(nrow = 7, ncol = 5)
-rownames(syndrome_cg_overlaps) <- c("cg_k","cg_s","cg_w","cg_ks","cg_kw","cg_sw","cg_ksw")
-colnames(syndrome_cg_overlaps) <- paste("L", 1:5, sep = "_")
-syndrome_cg_overlaps_expect <- syndrome_cg_overlaps
-syndrome_cg_overlaps_or <- syndrome_cg_overlaps
-syndrome_cg_overlaps_or_ci <- syndrome_cg_overlaps
-for(i in 1:5){
-  ds <- "KAT6A"
-  temp_k <- GRanges(seqnames = kws_dat[[ds]]$built_layers[[i]]$chr ,
-                  ranges = IRanges( start = kws_dat[[ds]]$built_layers[[i]]$start_pos,
-                                    end = kws_dat[[ds]]$built_layers[[i]]$stop_pos))
-  ds <- "Sotos"
-  temp_s <- GRanges(seqnames = kws_dat[[ds]]$built_layers[[i]]$chr ,
-                  ranges = IRanges( start = kws_dat[[ds]]$built_layers[[i]]$start_pos,
-                                    end = kws_dat[[ds]]$built_layers[[i]]$stop_pos))
-  ds <- "Weaver"
-  temp_w <- GRanges(seqnames = kws_dat[[ds]]$built_layers[[i]]$chr ,
-                  ranges = IRanges( start = kws_dat[[ds]]$built_layers[[i]]$start_pos,
-                                    end = kws_dat[[ds]]$built_layers[[i]]$stop_pos))
-  
-  cg_k <- unique(findOverlaps(cg_grs, temp_k)@from)
-  cg_s <- unique(findOverlaps(cg_grs, temp_s)@from)
-  cg_w <- unique(findOverlaps(cg_grs, temp_w)@from)
-  cg_ks <- intersect(cg_k,cg_s)
-  cg_kw <- intersect(cg_k,cg_w)
-  cg_sw <- intersect(cg_s,cg_w)
-  cg_ksw <- intersect(cg_k, cg_sw)
-  syndrome_cg_overlaps["cg_k",i] <- length(cg_k)
-  syndrome_cg_overlaps["cg_s",i] <- length(cg_s)
-  syndrome_cg_overlaps["cg_w",i] <- length(cg_w)
-  syndrome_cg_overlaps["cg_ks",i] <- length(cg_ks)
-  syndrome_cg_overlaps["cg_kw",i] <- length(cg_kw)
-  syndrome_cg_overlaps["cg_sw",i] <- length(cg_sw)
-  syndrome_cg_overlaps["cg_ksw",i] <- length(cg_ksw)
-  
-  
-  syndrome_cg_overlaps_expect["cg_ks",i] <- length(cg_k)*length(cg_s) / nrow(atomic_layer)
-  syndrome_cg_overlaps_expect["cg_kw",i] <- length(cg_k)*length(cg_w) / nrow(atomic_layer)
-  syndrome_cg_overlaps_expect["cg_sw",i] <- length(cg_s)*length(cg_w) / nrow(atomic_layer)
-  syndrome_cg_overlaps_expect["cg_ksw",i] <- length(cg_kw)*length(cg_s) / nrow(atomic_layer)
-  
-  syn_or <- function(cg1, cg2, nt){
-    cg12 <- length(intersect(cg1,cg2))
-    cg_n1_y2 <- length(cg2) - cg12
-    cg_n2_y1 <- length(cg1) - cg12
-    cg_n12 <- nt - cg12 - cg_n1_y2 - cg_n2_y1
-    return( round((cg12 * cg_n12) / (cg_n1_y2 * cg_n2_y1),2))
-  }
-  syn_or_CI95 <- function(cg1, cg2, nt){
-    cg12 <- length(intersect(cg1,cg2))
-    cg_n1_y2 <- length(cg2) - cg12
-    cg_n2_y1 <- length(cg1) - cg12
-    cg_n12 <- nt - cg12 - cg_n1_y2 - cg_n2_y1
-    log_or <- log((cg12 * cg_n12) / (cg_n1_y2 * cg_n2_y1))
-    se_log_oe <-  sqrt(1/cg12 + 1/cg_n1_y2 + 1/cg_n2_y1 + 1/cg_n12)
-    left <-  log_or - 1.96*se_log_oe
-    right <-  log_or + 1.96*se_log_oe
-    return( paste(round(exp(left),2), "-",round(exp(right),2),sep = "")   )
-  }
-  
-  syndrome_cg_overlaps_or["cg_ks",i] <- syn_or(cg_k,cg_s,nrow(atomic_layer))
-  syndrome_cg_overlaps_or["cg_kw",i] <- syn_or(cg_k,cg_w,nrow(atomic_layer))
-  syndrome_cg_overlaps_or["cg_sw",i] <- syn_or(cg_s,cg_w,nrow(atomic_layer))
-  syndrome_cg_overlaps_or["cg_ksw",i] <- syn_or(cg_k,cg_sw,nrow(atomic_layer))
-  
-    syndrome_cg_overlaps_or_ci["cg_ks",i] <- syn_or_CI95(cg_k,cg_s,nrow(atomic_layer))
-  syndrome_cg_overlaps_or_ci["cg_kw",i] <- syn_or_CI95(cg_k,cg_w,nrow(atomic_layer))
-  syndrome_cg_overlaps_or_ci["cg_sw",i] <- syn_or_CI95(cg_s,cg_w,nrow(atomic_layer))
-  syndrome_cg_overlaps_or_ci["cg_ksw",i] <- syn_or_CI95(cg_k,cg_sw,nrow(atomic_layer))
-}
-
-
-write.csv(syndrome_cg_overlaps,
-          file = paste(results_dir,"syndrome_cg_overlaps.csv", sep = ""))
-write.csv(syndrome_cg_overlaps_expect,
-          file = paste(results_dir,"syndrome_cg_overlaps_expect.csv", sep = ""))
-write.csv(syndrome_cg_overlaps/syndrome_cg_overlaps_expect,
-          file = paste(results_dir,"syndrome_cg_overlaps_obs_over_exp.csv", sep = ""))
-write.csv(syndrome_cg_overlaps_or,
-          file = paste(results_dir,"syndrome_cg_overlaps_or.csv", sep = ""))
-write.csv(syndrome_cg_overlaps_or_ci,
-          file = paste(results_dir,"syndrome_cg_overlaps_or_ci.csv", sep = ""))
-
-
-syndrome_cg_overlaps_or_ci
-or_w_ci <- matrix(paste(syndrome_cg_overlaps_or, " (", syndrome_cg_overlaps_or_ci, ")", sep = ""), nrow=7,ncol=5)
-#or_w_ci <- matrix(nrow = 7, ncol = 5)
-rownames(or_w_ci) <- c("cg_k","cg_s","cg_w","cg_ks","cg_kw","cg_sw","cg_ksw")
-colnames(or_w_ci) <- paste("L", 1:5, sep = "_")
-write.csv(or_w_ci,
-          file = paste(results_dir,"syndrome_cg_overlaps_or_w_ci.csv", sep = ""))
 
 ```
 
