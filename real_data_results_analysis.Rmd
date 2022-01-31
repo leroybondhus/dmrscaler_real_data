@@ -228,10 +228,10 @@ genes$end<-as.numeric(as.character(genes$end))
 ```{r, fig.height=9}
 data_set_regions_df <- data.frame("data_set"=c("Sex", "Sex", "KAT6A", "KAT6A", "Weaver","Sotos" ),
                                   "chr"=c("chrX","chr9" ,"chr17" ,"chr2","chr7","chr5"),
-                                  "start"=c(71.45e6, 84.302e6 , 46.6e6 ,82e6 ,27.15e6 ,140.09e6 ),
-                                  "stop"=c(71.55e6, 84.305e6 , 46.72e6, 85e6 , 27.25e6 , 140.99e6 ),
-                                  "fig_height"=c(8,8,8,8,8,8),
-                                  "fig_width"=c(8,3,8,8,8,8))
+                                  "start"=c(71.45e6, 84.302e6 , 46.6e6 ,82e6 ,27.11e6 ,140.06e6 ),
+                                  "stop"=c(71.55e6, 84.305e6 , 46.72e6, 85e6 , 27.25e6 , 141.00e6 ),
+                                  "fig_height"=c(8,8,8,8,8,9.2),
+                                  "fig_width"=c(6,4,8,8,8,8))
 
 for(region_id in 1:nrow(data_set_regions_df)){
   data_set <- data_set_list[[data_set_regions_df$data_set[region_id] ]] 
@@ -336,6 +336,7 @@ for(region_id in 1:nrow(data_set_regions_df)){
         }
       }
     } else {
+      if(grepl("combp_2", result_set$method_id)){next;}
       which_in_anno <- which(seqnames(result_set$grange)==chr)
       dmr_tracks[[length(dmr_tracks)+1]] <- AnnotationTrack(start = start(result_set$grange[which_in_anno]) , 
                                                               end =  end(result_set$grange[which_in_anno]),
@@ -354,7 +355,7 @@ for(region_id in 1:nrow(data_set_regions_df)){
   track_list <- c(list(itrack, gtrack, raw_beta_track, norm_beta_track, grtrack),dmr_tracks )
   
   filename <- paste(figures_dir, data_set$data_set_name, "_",chr,"_",start,"_",stop, ".png",sep="")
-  png(file=filename, width = data_set_regions_df$fig_width, height = data_set_regions_df$fig_height, units = "in", res = 320)
+  png(file=filename, width = data_set_regions_df$fig_width[region_id], height = data_set_regions_df$fig_height[region_id], units = "in", res = 320)
   plotTracks(c(track_list),
              from = start-1, to=stop+1, # sizes =c(0.5,0.75,3,2,3,0.35,0.35,0.35,0.35,0.35),
              background.title = "white"
@@ -453,6 +454,7 @@ for(region_id in 1:nrow(data_set_regions_df)){
         in_dmr_list[[result_set$method]]$layer_names <- unique(result_set$grange$layer)
       }
     } else {
+      if(grepl("combp_2",result_set$method)){next}
       in_dmr_list[[result_set$method_id]]$locs <- locs
         in_dmr_list[[result_set$method_id]]$locs$index <- 1:nrow(locs)
       in_dmr_list[[result_set$method_id]]$locs$in_dmr <- countOverlaps(locs_gr, result_set$grange)
@@ -502,7 +504,7 @@ for(region_id in 1:nrow(data_set_regions_df)){
   gtable$heights[panels] <- unit(c(rep(4,4), rep(1,6)),"null")
   
   filename <- paste(figures_dir, data_set$data_set_name, "_adj_cgs_",chr,"_",start,"_",stop, ".png",sep="")
-  png(file=filename, width = data_set_regions_df$fig_width+2, height = data_set_regions_df$fig_height, units = "in", res = 320)
+  png(file=filename, width = data_set_regions_df$fig_width[region_id]+1, height = data_set_regions_df$fig_height[region_id], units = "in", res = 320)
   grid.newpage()
   grid.draw(gtable)
   dev.off()
