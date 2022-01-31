@@ -639,7 +639,7 @@ result_set_ids <- grep(paste("data_set_", data_set_id, sep = ""), names(data_set
 for(rs_index in result_set_ids){
   result_set <- data_set_results[[rs_index]] 
   if(grepl("dmrscaler", result_set$method)){
-    if(grepl("_1", result_set$method_id)){
+    if(grepl("_2", result_set$method_id)){
       for(l in 1:length(unique(result_set$grange$layer))){
         which_x <- which(result_set$grange@seqnames=="chrX" &
                            result_set$grange$layer == unique(result_set$grange$layer)[l])
@@ -745,6 +745,7 @@ clean_results_table <- fmt_number(clean_results_table, columns = c(autosome_medi
 clean_results_table
 
 #gtsave(clean_results_table, filename = paste( "Sex_Analysis_DMR_Summary_Table_2.png",sep=""))
+gtsave(clean_results_table, filename = paste(tables_dir,"Sex_Analysis_DMR_Summary_Table_2.html",sep=""))
 
 ```
 
@@ -755,7 +756,7 @@ library(rjson)
 
 data_set_id <- grep("Sex", names(data_set_list))
 result_set_ids <- grep(paste("data_set_", data_set_id, sep = ""), names(data_set_results))
-method_set_id <- grep("dmrscaler_1", names(method_set_list))
+method_set_id <- grep("dmrscaler_2", names(method_set_list))
 method_set_ids <- grep(paste("method_set_", method_set_id, sep = ""), names(data_set_results))
 result_set <- data_set_results[[ intersect(result_set_ids, method_set_ids ) ]] 
 
@@ -766,10 +767,13 @@ for(j in 1:length(unique(result_set$grange$layer))){
   #which <- which(built_layers[[j]]$chr =="chrX")
   #which <- 1:length(built_layers[[j]]$chr)
   gr_nodes <- list()
-  which <- which(result_set$grange$layer == unique(result_set$grange$layer)[j]) 
+  which <- which(result_set$grange$layer == unique(result_set$grange$layer)[j] &
+                   -log10(result_set$grange$pval_region) > 10) 
   for(i in 1:length(which)){
-    temp_name <- paste(as.character(seqnames(result_set$grange[ which[i],])), start(result_set$grange[which[i],]), end(result_set$grange[which[i],]), sep = "_")
-   # temp_name <- paste(format(start(x_base[i,]),big.mark=","), format(end(x_base[i,]),big.mark=","), sep = " - ")
+    #temp_name <- paste(as.character(seqnames(result_set$grange[ which[i],])), start(result_set$grange[which[i],]), end(result_set$grange[which[i],]), sep = "_")
+    
+    
+    temp_name <- paste(format(start(result_set$grange[which[i],]),big.mark=","), format(end(result_set$grange[which[i],]),big.mark=","), sep = " - ")
     temp_child <- list("name"= temp_name, "alt_name"= temp_name, "grange"=result_set$grange[which[i],], "children"=list() )
     gr_nodes[[i]] <-  list("name"= temp_name, "alt_name"= temp_name, "grange"=result_set$grange[which[i],], "children"=list())
   }
@@ -833,18 +837,26 @@ dmr_tree_clean <- strip_grs(dmr_tree)
 library("webshot") ###  library to fix an obnoxious problem
 
 temp <- radialNetwork(List = dmr_tree_clean, fontSize = 16, fontFamily = "bold", nodeStroke = "black", linkColour = "grey60", opacity = 1, margin=0, height = 1600, width = 1600)
-saveNetwork(temp,paste("All_chrom_dmrs_radialNetwork.html",sep = "") ,
+saveNetwork(temp,paste(figures_dir,"All_chrom_dmrs_radialNetwork2.html",sep = "") ,
             selfcontained = T)
-webshot(paste("All_chrom_dmrs_radialNetwork.html",sep = ""),
-        paste("All_all_layer_chrom_dmrs_radialNetwork.png",sep = ""),
+webshot(paste(figures_dir,"All_chrom_dmrs_radialNetwork2.html",sep = ""),
+        paste(figures_dir,"All_all_layer_chrom_dmrs_radialNetwork2.png",sep = ""),
         zoom = 2)
 # 
 # 
-# temp <- diagonalNetwork(List = dmr_tree_clean[[2]][[1]], fontSize = 12, fontFamily = "bold", nodeStroke = "black", linkColour = "black", opacity = 1,  margin=0, height = 400, width = 150)
-# saveNetwork(temp,paste(figures_dir, "FINAL_X2_chrom_dmrs_diagonalNetwork.html", sep="") , selfcontained = T )
-# webshot(paste("FINAL_X2_chrom_dmrs_diagonalNetwork.html", sep=""),
-#         paste("FINAL_X2_chrom_dmrs_diagonalNetwork.png", sep=""),
-#         vheight = 400, vwidth = 150 , zoom =10 )
+
+temp_tree <- dmr_tree_clean
+temp_tree$children[c(1:48,50)] <- NULL
+temp_tree$children[[1]]$children[[1]]$children[[2]]$children[c(1:25,28:51)] <- NULL
+temp_tree$children[[1]]$children[[1]]$children[[2]]$children[[1]]$children[c(seq(2,28,by=2),5,9,11,13,15,19,25 )] <- NULL
+temp_tree$children[[1]]$children[[1]]$children[[2]]$children[[2]]$children[c(seq(2,18,by=2),5,9,13,17 )] <- NULL
+
+temp_tree <- temp_tree$children[[1]]$children[[1]]
+temp <- diagonalNetwork(List = temp_tree, fontSize = 12, fontFamily = "bold", nodeStroke = "black", linkColour = "black", opacity = 1,  margin=0, height = 380, width = 280)
+saveNetwork(temp,paste(figures_dir, "FINAL_X2_chrom_dmrs_diagonalNetwork.html", sep="") , selfcontained = T )
+webshot(paste(figures_dir,"FINAL_X2_chrom_dmrs_diagonalNetwork.html", sep=""),
+        paste(figures_dir,"FINAL_X2_chrom_dmrs_diagonalNetwork.png", sep=""),
+        vheight = 380, vwidth = 280 , zoom =10 )
 
 
 ```
@@ -1304,6 +1316,12 @@ syndrome_overlap_list
 
 
 ```{r XY sex analysis escape from xci}
+genes <- gtf_df[which(gtf_df$gene_biotype =="protein_coding" ),]
+genes <- genes[which(genes$gene_source=="ensembl_havana"),]
+genes <- genes[which(genes$type=="gene" ),]
+genes <- genes[,!(colSums(!is.na(genes))==0)]
+gene_ranges <- GRanges(seqnames = genes$seqnames, IRanges(start = genes$start, width = genes$width))
+gene_ranges$gene_names <- genes$gene_name
 
 xci_escape_or_table  <- data.frame(layer=numeric(), datasets=character(),
                                    or_estimate=numeric(), or_ci=character(),
@@ -1394,6 +1412,10 @@ for(rs_index in result_set_ids){
   
 }
 
+
+xci_escape_or_table$OR <- paste(signif(xci_escape_or_table$or_estimate,3)," (", xci_escape_or_table$or_ci, ")" , sep="")
+filename <- paste(tables_dir, "xci_escape_or_table.csv")
+write.csv(xci_escape_or_table, file = filename)
 
 
 
