@@ -336,7 +336,7 @@ for(region_id in 1:nrow(data_set_regions_df)){
         }
       }
     } else {
-      if(grepl("combp_2", result_set$method_id)){next;}
+      if(grepl("combp_2", result_set$method_id)){next}
       which_in_anno <- which(seqnames(result_set$grange)==chr)
       dmr_tracks[[length(dmr_tracks)+1]] <- AnnotationTrack(start = start(result_set$grange[which_in_anno]) , 
                                                               end =  end(result_set$grange[which_in_anno]),
@@ -454,7 +454,7 @@ for(region_id in 1:nrow(data_set_regions_df)){
         in_dmr_list[[result_set$method]]$layer_names <- unique(result_set$grange$layer)
       }
     } else {
-      if(grepl("combp_2",result_set$method)){next}
+      if(grepl("combp_2",result_set$method_id)){next}
       in_dmr_list[[result_set$method_id]]$locs <- locs
         in_dmr_list[[result_set$method_id]]$locs$index <- 1:nrow(locs)
       in_dmr_list[[result_set$method_id]]$locs$in_dmr <- countOverlaps(locs_gr, result_set$grange)
