@@ -22,8 +22,8 @@ if(length(args) < 2){
 
 DATA_SET_ID <- as.numeric(args[1])
 METHOD_SET_ID <- as.numeric(args[2])
- filename <- paste(output_dir,"args_test_",DATASET_ID,"__method_set_",METHOD_SET_ID,".csv", sep="" )
- TEST <- data.frame("DATASET_ID"=DATASET_ID, "METHOD_SET_ID"=METHOD_SET_ID )
+ filename <- paste(output_dir,"args_test_",DATA_SET_ID,"__method_set_",METHOD_SET_ID,".csv", sep="" )
+ TEST <- data.frame("DATA_SET_ID"=DATA_SET_ID, "METHOD_SET_ID"=METHOD_SET_ID )
  write.table(TEST, filename, row.names = F)
 
 
