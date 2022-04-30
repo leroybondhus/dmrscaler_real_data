@@ -39,7 +39,7 @@ method_set_name <- names(method_set_list)[METHOD_SET_ID]
 g12 <- c(data_set$g1,data_set$g2)
 g1 <- data_set$g1
 g2 <- data_set$g2
-B <- data_set$B
+B <- data_set$B[,c(g1,g2)]
 locs <- data_set$locs
 ### End: Set up dataset ####
 
@@ -49,9 +49,10 @@ method_name <- method_set$method
 if(grepl("dmrscaler", method_name, ignore.case = TRUE)){
   mwr <- DMRscaler::run_MWW(g1,g2,B)
   locs$pval <- mwr$p_val
-  pval_cutoff_1 <- DMRscaler::get_loc_fdr_pval(B, g1,g2, wilcox.test, fdr=0.1)
-  pval_cutoff_2 <- DMRscaler::get_loc_fdr_pval(B, g1,g2, wilcox.test, fdr=0.01)
+  pval_cutoff <- DMRscaler::get_loc_fdr_pval(B, g1,g2, wilcox.test, fdr=0.1)
+  #pval_cutoff_2 <- DMRscaler::get_loc_fdr_pval(B, g1,g2, wilcox.test, fdr=0.05)
   region_pval_cutoff <- 0.01
+  region_fdr_cutoff <- 0.01
 } else if(grepl("bumphunter", method_name, ignore.case = TRUE)){
   design <- rep(-1,length(colnames(B)))
   design[which(is.element(colnames(B),g1))] <- 1
