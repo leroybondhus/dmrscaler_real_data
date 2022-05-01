@@ -7,7 +7,7 @@ library("DMRscaler")
 library("bumphunter")
 library("DMRcate")
 library("doParallel")
-registerDoParallel()
+registerDoParallel(detectCores()-1)
 
 
 output_dir <-paste("./results/")
@@ -49,7 +49,9 @@ method_name <- method_set$method
 if(grepl("dmrscaler", method_name, ignore.case = TRUE)){
   mwr <- DMRscaler::run_MWW(g1,g2,B)
   locs$pval <- mwr$p_val
-  pval_cutoff <- DMRscaler::get_loc_fdr_pval(B, g1,g2, wilcox.test, fdr=0.1)
+  fdr <- 0.1
+  pval_cutoff_df <- DMRscaler::get_loc_fdr_pval(B, g1,g2, wilcox.test, fdr=fdr, return_table=T)
+  pval_cutoff <- 10^pval_cutoff_df$log10pval_cutoff[max(which( pval_cutoff_df$fdr <= fdr ))]
   #pval_cutoff_2 <- DMRscaler::get_loc_fdr_pval(B, g1,g2, wilcox.test, fdr=0.05)
   region_cutoff <- 0.01
 } else if(grepl("bumphunter", method_name, ignore.case = TRUE)){
