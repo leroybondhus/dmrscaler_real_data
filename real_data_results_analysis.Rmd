@@ -55,9 +55,10 @@ for(data_set_id in 1:length(data_set_list)){
                                      sep=""), filenames)]
     if(length(filename)==0){next}
     result <- fread(filename)
-    # if(method_set_list[[method_id]]$method=="dmrscaler"){
-    #   result <- result[grep("64",result$layer),]
-    # }
+    if(method_set_list[[method_id]]$method=="dmrscaler"){
+      #result <- result[grep("64",result$layer),]
+      result$pval_region <- result$pval_region_adj
+    }
     
     locs <- data_set_list[[data_set_id]]$locs
     chr_seqlengths <- numeric(length=length(unique(locs$chr)))
@@ -90,6 +91,19 @@ for(data_set_id in 1:length(data_set_list)){
     
   }
 }
+
+
+## save common formatted method results
+if(TRUE){
+  for(i in 1:length(data_set_results)){
+    as.data.frame(data_set_results[[i]]$grange)
+    filename <- paste(tables_dir,"dataset_",data_set_results[[i]]$data_set,
+                      "__method_",data_set_results[[i]]$method_id, ".csv",sep="")
+  write.csv(as.data.frame(data_set_results[[i]]$grange), file = filename)
+  }
+  
+}
+
 ```
 
 ```{r write DMR width percentiles}
@@ -213,7 +227,7 @@ for(i in 1:length(quants_list)){
 
 ```{r}
 
-gtf_df <- rtracklayer::import("../../STABLE_DATA/HUMAN_GENOME/Homo_sapiens.GRCh37.87.chr.gtf")
+gtf_df <- rtracklayer::import("../../STABLE_DATA/HUMAN_GENOME/Homo_sapiens.GRCh37.87.chr.gtf.gz")
 gtf_df <- as.data.frame(gtf_df)
 gtf_df$seqnames<-paste("chr", gtf_df$seqnames, sep = "")
 
@@ -233,21 +247,21 @@ data_set_regions_df <- data.frame("data_set"=c("Sex", "Sex", "KAT6A", "KAT6A", "
                                   "fig_height"=c(8,8,8,8,8,9.2),
                                   "fig_width"=c(6,4,8,8,8,8))
 # 
-# data_set_regions_df <- data.frame("data_set"=c("KAT6A", "Weaver", "Sotos", "KAT6A", "Weaver","Sotos","KAT6A", "Weaver", "Sotos" ),
-#                                   "chr"=c("chr5","chr5" ,"chr5" ,"chr11","chr11","chr11","chr11","chr11","chr11"),
-#                                   "start"=c(140.65e6, 140.65e6, 140.65e6, 2.15e6, 2.15e6, 2.15e6, 2.180e6, 2.180e6, 2.180e6 ),
-#                                   "stop"=c(140.95e6, 140.95e6, 140.95e6, 2.24e6, 2.24e6, 2.24e6, 2.185e6, 2.185e6, 2.185e6 ),
-#                                   "fig_height"=c(8),
-#                                   "fig_width"=c(8))
+data_set_regions_df <- data.frame("data_set"=c("KAT6A", "Weaver", "Sotos", "KAT6A", "Weaver","Sotos","KAT6A", "Weaver", "Sotos" ),
+                                  "chr"=c("chr5","chr5" ,"chr5" ,"chr11","chr11","chr11","chr11","chr11","chr11"),
+                                  "start"=c(140.65e6, 140.65e6, 140.65e6, 2.15e6, 2.15e6, 2.15e6, 2.180e6, 2.180e6, 2.180e6 ),
+                                  "stop"=c(140.95e6, 140.95e6, 140.95e6, 2.24e6, 2.24e6, 2.24e6, 2.185e6, 2.185e6, 2.185e6 ),
+                                  "fig_height"=c(8),
+                                  "fig_width"=c(8))
 
 for(region_id in 1:nrow(data_set_regions_df)){
   data_set <- data_set_list[[data_set_regions_df$data_set[region_id] ]] 
   g1 <- data_set$g1
   g2 <- data_set$g2
   
-  group<-character(length = ncol(data_set$B))
-  group[which(is.element(colnames(data_set$B),g1))] <- data_set$g1g2_labels$g1
-  group[which(is.element(colnames(data_set$B),g2))] <- data_set$g1g2_labels$g2
+  group<-character(length = ncol(data_set$B[,c(g1,g2)]))
+  group[which(is.element(colnames(data_set$B[,c(g1,g2)]),g1))] <- data_set$g1g2_labels$g1
+  group[which(is.element(colnames(data_set$B[,c(g1,g2)]),g2))] <- data_set$g1g2_labels$g2
 
   group <- as.factor(group)
   color=c("blue", "seagreen3")
@@ -285,7 +299,7 @@ for(region_id in 1:nrow(data_set_regions_df)){
   gen<-"hg19"
   
   which<-which(data_set$locs$chr==chr & data_set$locs$pos>=start & data_set$locs$pos<=stop )
-  B_sub<- data_set$B[which,]
+  B_sub<- data_set$B[which,c(g1,g2)]
   B_norm<-B_sub - rowMeans(B_sub[,g1])
   locs <- data_set$locs[which,]
   
@@ -301,7 +315,7 @@ for(region_id in 1:nrow(data_set_regions_df)){
 
  
   raw_beta_track<-DataTrack(range=grange, data=t(B_sub), groups=group ,
-                            genome=gen , name="Beta", col=color, type=c("a","g", "confint") ,
+                            genome=gen , name="Beta", col=color, type=c("a","g", "confint"),
                             lwd=linewide, fontcolor.title="grey20", col.axis="black",
                             fontcolor.legend="grey20", legend = TRUE, lwd.grid=0.8,
                             col.grid="grey65",v=0 )
@@ -337,11 +351,16 @@ for(region_id in 1:nrow(data_set_regions_df)){
         for(l in 1:length(unique(result_set$grange$layer))){
           which_in_layer <- which(result_set$grange$layer==unique(result_set$grange$layer)[l]
                                   & seqnames(result_set$grange)==chr )
-          dmr_tracks[[length(dmr_tracks)+1]] <- AnnotationTrack(start = start(result_set$grange[which_in_layer]) , 
+          if(length(which_in_layer)==0){
+            dmr_tracks[[length(dmr_tracks)+1]] <- AnnotationTrack()
+          } else {
+            dmr_tracks[[length(dmr_tracks)+1]] <- AnnotationTrack(start = start(result_set$grange[which_in_layer]) , 
                                                                   end =  end(result_set$grange[which_in_layer]),
                                                                   chromosome = chr,
                                                                   strand = "*", genome = "hg19",
                                                                   name=unique(result_set$grange$layer)[l])
+          } 
+          
           displayPars(dmr_tracks[[length(dmr_tracks)]]) <- list(cex.legend=0.7, cex.axis=0.7, cex.title=0.7, rotation.title=0, col="grey20", fill="grey70", fontcolor.title="grey20", stackHeight = 1, shape="box")
         }
       }
@@ -363,6 +382,7 @@ for(region_id in 1:nrow(data_set_regions_df)){
   itrack<-IdeogramTrack(genome=gen,chromosome = chr)
   displayPars(itrack) <- list(cex=1,cex.bands=1, fontcolor="grey20")
   track_list <- c(list(itrack, gtrack, manhattan_track, norm_beta_track, grtrack),dmr_tracks )
+  #track_list <- c(list(itrack, gtrack, raw_beta_track, norm_beta_track, grtrack),dmr_tracks )
   
   filename <- paste(figures_dir, data_set$data_set_name, "_",chr,"_",start,"_",stop, ".png",sep="")
   png(file=filename, width = data_set_regions_df$fig_width[region_id], height = data_set_regions_df$fig_height[region_id], units = "in", res = 320)
@@ -777,8 +797,8 @@ for(j in 1:length(unique(result_set$grange$layer))){
   #which <- which(built_layers[[j]]$chr =="chrX")
   #which <- 1:length(built_layers[[j]]$chr)
   gr_nodes <- list()
-  which <- which(result_set$grange$layer == unique(result_set$grange$layer)[j] &
-                   -log10(result_set$grange$pval_region) > 10) 
+  which <- which(result_set$grange$layer == unique(result_set$grange$layer)[j]) #&
+  #                 -log10(result_set$grange$pval_region) > 10) 
   for(i in 1:length(which)){
     #temp_name <- paste(as.character(seqnames(result_set$grange[ which[i],])), start(result_set$grange[which[i],]), end(result_set$grange[which[i],]), sep = "_")
     
@@ -844,24 +864,23 @@ strip_grs <- function(node){
 dmr_tree_clean <- strip_grs(dmr_tree)
 
 
-library("webshot") ###  library to fix an obnoxious problem
-
-temp <- radialNetwork(List = dmr_tree_clean, fontSize = 16, fontFamily = "bold", nodeStroke = "black", linkColour = "grey60", opacity = 1, margin=0, height = 1600, width = 1600)
-saveNetwork(temp,paste(figures_dir,"All_chrom_dmrs_radialNetwork2.html",sep = "") ,
-            selfcontained = T)
-webshot(paste(figures_dir,"All_chrom_dmrs_radialNetwork2.html",sep = ""),
-        paste(figures_dir,"All_all_layer_chrom_dmrs_radialNetwork2.png",sep = ""),
-        zoom = 2)
+# library("webshot") ###  library to fix an obnoxious problem
+# 
+# temp <- radialNetwork(List = dmr_tree_clean, fontSize = 16, fontFamily = "bold", nodeStroke = "black", linkColour = "grey60", opacity = 1, margin=0, height = 1600, width = 1600)
+# saveNetwork(temp,paste(figures_dir,"All_chrom_dmrs_radialNetwork2.html",sep = "") ,
+#             selfcontained = T)
+# webshot(paste(figures_dir,"All_chrom_dmrs_radialNetwork2.html",sep = ""),
+#         paste(figures_dir,"All_all_layer_chrom_dmrs_radialNetwork2.png",sep = ""),
+#         zoom = 2)
 # 
 # 
 
 temp_tree <- dmr_tree_clean
-temp_tree$children[c(1:48,50)] <- NULL
-temp_tree$children[[1]]$children[[1]]$children[[2]]$children[c(1:25,28:51)] <- NULL
-temp_tree$children[[1]]$children[[1]]$children[[2]]$children[[1]]$children[c(seq(2,28,by=2),5,9,11,13,15,19,25 )] <- NULL
-temp_tree$children[[1]]$children[[1]]$children[[2]]$children[[2]]$children[c(seq(2,18,by=2),5,9,13,17 )] <- NULL
+temp_tree$children[c(1:22,24)] <- NULL
+temp_tree$children[[1]]$children[[2]]$children[c(1:6,8:17)] <- NULL
+#temp_tree$children[[1]]$children[[2]]$children[[1]]$children[c(seq(2,7,by=2),7)] <- NULL
 
-temp_tree <- temp_tree$children[[1]]$children[[1]]
+temp_tree <- temp_tree$children[[1]]
 temp <- diagonalNetwork(List = temp_tree, fontSize = 12, fontFamily = "bold", nodeStroke = "black", linkColour = "black", opacity = 1,  margin=0, height = 380, width = 280)
 saveNetwork(temp,paste(figures_dir, "FINAL_X2_chrom_dmrs_diagonalNetwork.html", sep="") , selfcontained = T )
 webshot(paste(figures_dir,"FINAL_X2_chrom_dmrs_diagonalNetwork.html", sep=""),
@@ -882,7 +901,7 @@ result_set_ids <- grep(paste("data_set_", data_set_id, sep = ""), names(data_set
 for(rs_index in result_set_ids){
   result_set <- data_set_results[[rs_index]] 
   if(grepl("dmrscaler", result_set$method)){
-    if(grepl("_1", result_set$method_id)){
+    if(grepl("_2", result_set$method_id)){
       for(l in 1:length(unique(result_set$grange$layer))){
         which_x <- which(result_set$grange@seqnames=="chrX" &
                            result_set$grange$layer == unique(result_set$grange$layer)[l])
@@ -1441,7 +1460,7 @@ for(method_set_id in method_sets){
                                )
             )
             
-            syndrome_overlap_list[[result_set_1$method_id]]$or_table <- temp_or_table
+            syndrome_overlap_list[[method_set_id]]$or_table <- temp_or_table
             
       }
 }
