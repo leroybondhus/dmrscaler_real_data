@@ -24,9 +24,9 @@ library(Gviz)
 
 ###  Reading of idat files done with minfi library ###
 ```{r read_data}
-idats_dir<-"/home/lbondhus/Desktop/STABLE_DATA/KAT6A_DNA_methylation_data/idat_KAT6A_and_control"
+idats_dir<-"/home/leroy/Desktop/STABLE_DATA/KAT6A_DNA_methylation_data/idat_KAT6A_and_control"
 idats_files<-list.files(path=idats_dir, pattern = "*.idat")
-targets <- read.metharray.sheet("/home/lbondhus/Desktop/STABLE_DATA/KAT6A_DNA_methylation_data/", pattern = "Formatted", verbose = TRUE)
+targets <- read.metharray.sheet("/home/leroy/Desktop/STABLE_DATA/KAT6A_DNA_methylation_data/", pattern = "Formatted", verbose = TRUE)
 targets$Basename<-paste(targets$Slide, "_", targets$Array, sep = "")  
 #Extract only KAT6A patients and Controls for analysis
 targets <- targets[c(grep("^CONTROL",targets$Sample_Name),grep("^KAT6",targets$Sample_Name)),]
@@ -63,6 +63,42 @@ rm(cut_from_end)
 
 ```{r Save Data Objects}
 save(GRset.funnorm, file="/home/lbondhus/Desktop/PROJECTS/dmrscaler_real_data/intermediate_data/KAT6A_GRset.funnorm.Rdata")
+```
+
+
+```{r export raw tables}
+library(data.table)
+
+MSet <- preprocessRaw(RGSet)
+methyl <- getMeth(MSet)
+unmethyl <- getUnmeth(MSet)
+pvals <- detectionP(RGSet)
+
+B <- getBeta(GRset.funnorm)
+
+raw_signal_intensities <- data.frame(propeID=rownames(methyl))
+for(i in 1:ncol(methyl)){
+  temp_df <- cbind(methyl[,i],unmethyl[,i],pvals[,i] )
+  colnames(temp_df) <- paste(colnames(methyl)[i], c("Methylated_Signal","Unmethylated_Signal","detPvalue"), sep = "_")
+  raw_signal_intensities <- cbind(raw_signal_intensities, temp_df)
+}
+
+fwrite(raw_signal_intensities, "./results/tables/arboleda_tham_DNAm_signal_intensities_matrix.csv")
+
+locs <- as.data.frame(GRanges(getLocations(GRset.funnorm)))
+B <- signif(B, 4)
+B_processed <- cbind(data.frame(chr= locs$seqnames, start=locs$start, end=locs$end, probeID=rownames(locs)), B)
+fwrite(B_processed, "./results/tables/arboleda_tham_DNAm_processed_matrix.csv")
+
+targets2 <- read.metharray.sheet("/home/leroy/Desktop/STABLE_DATA/KAT6A_DNA_methylation_data/", pattern = "Formatted", verbose = TRUE)
+targets <- targets[match(targets$Sample_Name, targets2$Sample_Name[is.element(targets2$Sample_Name,targets$Sample_Name)]),]
+
+targets$disease_state <- "CONTROL"
+targets$disease_state[grep("KAT6A",targets$Sample_Name, ignore.case = T)] <- "ARTHS"
+targets$red_file_name <- paste(targets$Basename, "_Red.idat",sep = "")
+targets$green_file_name <- paste(targets$Basename, "_Grn.idat",sep = "")
+write.csv(targets,"./results/tables/temp.csv")
+
 ```
 
 
