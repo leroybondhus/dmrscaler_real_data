@@ -102,7 +102,7 @@ write.table(TIME, filename, row.names = F)
 
 
 ## convert all method outputs to standard GRange objects with chr,start,stop,pval
-if(grepl("dmrscaler", method_name, ignore.case = TRUE)){
+if(grepl("dmrscaler", method_set_name, ignore.case = TRUE)){
   out_df <- method_set_result[[1]][0,]
   for(i in 1:length(method_set_result)){
     if(nrow(method_set_result[[i]])>0 ){
